@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using CMS.WebApi.Models;
 using System.Text.Json;
 
@@ -44,7 +45,12 @@ namespace CMS.WebApi.Data
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
                         v => JsonSerializer.Deserialize<List<string>>(v, JsonSerializerOptions.Default) ?? new List<string>()
-                    );
+                    )
+                    .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                        (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+                        c => c == null ? 0 : c.Aggregate(0, (a, v) => HashCode.Combine(a, v != null ? v.GetHashCode() : 0)),
+                        c => c == null ? new List<string>() : c.ToList()
+                    ));
 
                 // Add indexes for better query performance
                 entity.HasIndex(e => e.Name).HasDatabaseName("IX_Templates_Name");
