@@ -1,15 +1,35 @@
-# CMS Web API
+# 📁 CMS Web API - Content Management System
 
-A Content Management System (CMS) Web API built with ASP.NET Core 9.0 and Entity Framework Core for document storage and retrieval.
+A Content Management System (CMS) Web API built with ASP.NET Core 9.0 and Entity Framework Core for document storage and retrieval. **Part of the Manteq Document System** - provides core document storage services for the Template Management System (TMS).
+
+## 🏗️ Role in Manteq Document System
+
+The CMS serves as the **foundational data layer** for the complete document automation platform:
+
+```
+Document Automation Flow:
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   CMS API   │───▶│   TMS API   │───▶│   Output    │
+│  (Storage)  │    │ (Processing)│    │ (Generated) │
+└─────────────┘    └─────────────┘    └─────────────┘
+      ▲                    │                  │
+      │              ┌─────▼─────┐            │
+      │              │ LibreOffice│            │
+      │              │ Conversion │            │
+      │              └───────────┘            │
+      │                                       │
+      └───────────── Document Storage ◀───────┘
+```
 
 ## 🚀 Features
 
 - **Document Registration**: Upload and store documents with metadata
-- **Document Retrieval**: Get document metadata and download URLs
+- **Document Retrieval**: Get document metadata and download URLs  
 - **File Storage**: Configurable disk-based storage with SQL Server metadata
 - **RESTful API**: Clean REST endpoints with comprehensive Swagger documentation
 - **File Size Limits**: 50MB maximum file size with validation
 - **Multiple File Types**: Support for documents, images, archives, and more
+- **TMS Integration**: Provides storage services for Template Management System
 
 ## 📋 Prerequisites
 
@@ -176,13 +196,47 @@ This CMS can be used as a DLL by other projects:
    services.AddScoped<IDocumentService, DocumentService>();
    ```
 
-## 📝 Next Steps
+## � TMS Integration
 
-- [ ] Set up database migrations
+This CMS is designed to work seamlessly with the **Template Management System (TMS)**:
+
+### **As Storage Backend**
+```csharp
+// TMS uses CMS services internally
+services.AddScoped<IDocumentService, DocumentService>();
+services.AddScoped<ICmsTemplateService, CmsTemplateService>();
+```
+
+### **Template Storage Flow**
+1. **Upload templates** to CMS via `/api/documents/register`
+2. **TMS references** CMS documents for template processing
+3. **Generated documents** can be stored back in CMS
+4. **Clean separation** - TMS processes, CMS stores
+
+### **Security Model**
+- **CMS endpoints**: Used internally by TMS
+- **TMS endpoints**: Exposed to external clients
+- **Controller exclusion**: TMS hides CMS controllers from public API
+
+## �📝 Next Steps
+
+- [x] Set up database auto-creation
+- [x] Integration with Template Management System (TMS)
+- [x] Clean API separation and security
 - [ ] Add authentication/authorization
 - [ ] Implement document versioning
 - [ ] Add search and filtering capabilities
 - [ ] Create unit and integration tests
+
+## 🤝 Integration with TMS
+
+For complete document automation capabilities, pair this CMS with the **Template Management System (TMS)**:
+
+- **CMS**: Handles document storage and retrieval
+- **TMS**: Processes templates and generates documents  
+- **Together**: Provide end-to-end document automation
+
+See the main [README.md](../README.md) for complete system documentation.
 
 ## 🤝 Team Distribution
 
