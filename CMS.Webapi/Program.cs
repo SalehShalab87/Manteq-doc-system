@@ -13,6 +13,7 @@ builder.Services.AddDbContext<CmsDbContext>(options =>
 
 // Add custom services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

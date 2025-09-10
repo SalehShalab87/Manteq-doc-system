@@ -361,3 +361,18 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# TMS Generated Documents (temporary files that should not be committed)
+**/GeneratedDocuments/
+**/Output/
+TMS.WebApi/GeneratedDocuments/
+CMS.WebApi/Output/
+
+# Template files and generated content
+*.temp.html
+working_*.docx
+working_*.xlsx
+working_*.pptx
+*_html_*.gif
+*_html_*.png
+*_html_*.jpg
