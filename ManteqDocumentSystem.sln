@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CMS.WebApi", "CMS.Webapi\CMS.WebApi.csproj", "{3298F48C-BF16-4792-92F3-4992988A1415}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TMS.WebApi", "TMS.WebApi\TMS.WebApi.csproj", "{F5EDAEB6-B967-4737-A252-76DF0012DEBF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +28,9 @@ Global
 		{BF77D7DF-8346-4066-A45B-DEB6486383F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF77D7DF-8346-4066-A45B-DEB6486383F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF77D7DF-8346-4066-A45B-DEB6486383F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5EDAEB6-B967-4737-A252-76DF0012DEBF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5EDAEB6-B967-4737-A252-76DF0012DEBF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5EDAEB6-B967-4737-A252-76DF0012DEBF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5EDAEB6-B967-4737-A252-76DF0012DEBF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -80,12 +80,23 @@ Template Processing Pipeline:
 
 ## 🏃‍♂️ Quick Start
 
-### 1. **Start the TMS API**
+### 1. **Build and Start the TMS API**
 ```bash
+# Option 1: Run TMS standalone
 cd TMS.WebApi
 dotnet run
-# Access: http://localhost:5267
-# Swagger: http://localhost:5267
+
+# Option 2: Build using TMS solution (includes CMS dependency)
+cd TMS.WebApi
+dotnet build TMS.WebApi.sln
+dotnet run
+
+# Option 3: Build entire Manteq Document System
+cd .. # (from project root)
+dotnet build ManteqDocumentSystem.sln
+
+# Access TMS API: http://localhost:5267
+# Swagger UI: http://localhost:5267
 ```
 
 ### 2. **Register a Template**

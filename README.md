@@ -51,14 +51,28 @@ Manteq Document System
 CREATE DATABASE ManteqCmsDb;
 ```
 
-### 2. **Run CMS API**
+### 2. **Build Options**
+```bash
+# Option 1: Build entire system
+dotnet build ManteqDocumentSystem.sln
+
+# Option 2: Build TMS with dependencies
+cd TMS.WebApi
+dotnet build TMS.WebApi.sln
+
+# Option 3: Build individual projects
+cd CMS.WebApi && dotnet build
+cd TMS.WebApi && dotnet build
+```
+
+### 3. **Run CMS API**
 ```bash
 cd CMS.WebApi
 dotnet run
 # Access: http://localhost:5077 (Swagger: https://localhost:7276)
 ```
 
-### 3. **Run TMS API**
+### 4. **Run TMS API**
 ```bash
 cd TMS.WebApi
 dotnet run
@@ -130,6 +144,7 @@ Content-Type: application/json
 
 ```
 Manteq-doc-system/
+├── ManteqDocumentSystem.sln    # Main solution (CMS + TMS)
 ├── CMS.WebApi/                 # Content Management System
 │   ├── Controllers/
 │   ├── Data/
@@ -137,6 +152,7 @@ Manteq-doc-system/
 │   ├── Services/
 │   └── README.md
 ├── TMS.WebApi/                 # Template Management System
+│   ├── TMS.WebApi.sln          # TMS solution (TMS + CMS dependency)
 │   ├── Controllers/
 │   ├── Services/
 │   ├── Models/
@@ -146,6 +162,10 @@ Manteq-doc-system/
 ├── .gitignore                  # Ignores generated files
 └── README.md                   # This file
 ```
+
+### **Solution Files**
+- **`ManteqDocumentSystem.sln`** - Complete system build (recommended for development)
+- **`TMS.WebApi/TMS.WebApi.sln`** - TMS-focused build with CMS dependency
 
 ## 🧪 Testing
 
