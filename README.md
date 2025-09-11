@@ -56,15 +56,38 @@ Manteq Document System
 - LibreOffice (for TMS document conversion)
 - Visual Studio Code or Visual Studio
 
-## ⚙️ Quick Start
-
-### 1. **Database Setup**
+### 🔧 **Database Setup Requirements**
 ```sql
--- Create database (or configure connection string)
-CREATE DATABASE ManteqCmsDb;
+-- Create the shared database for all services
+CREATE DATABASE CmsDatabase_Dev;
 ```
 
-### 2. **Build Options**
+### 🔒 **Security Configuration**
+Each service requires a `.env` file with environment variables. **Never commit these files to version control.**
+
+## ⚙️ Quick Start
+
+### 1. **Environment Setup**
+Create `.env` files in each service directory:
+
+```bash
+# Copy templates and configure with your settings
+cp CMS.Webapi/.env.template CMS.Webapi/.env
+cp TMS.WebApi/.env.template TMS.WebApi/.env  
+cp EmailService.WebApi/.env.template EmailService.WebApi/.env
+
+# Edit each .env file with your:
+# - Database server details
+# - SMTP credentials (for EmailService)
+```
+
+### 2. **Database Setup**
+```sql
+-- Create database (or configure connection string)
+CREATE DATABASE CmsDatabase_Dev;
+```
+
+### 3. **Build Options**
 ```bash
 # Option 1: Build entire system
 dotnet build ManteqDocumentSystem.sln
@@ -83,26 +106,28 @@ cd TMS.WebApi && dotnet build
 cd EmailService.WebApi && dotnet build
 ```
 
-### 3. **Run CMS API**
+### 4. **Run CMS API**
 ```bash
-cd CMS.WebApi
+cd CMS.Webapi
 dotnet run
 # Access: http://localhost:5077 (Swagger: https://localhost:7276)
 ```
 
-### 4. **Run TMS API**
+### 5. **Run TMS API**
 ```bash
 cd TMS.WebApi
 dotnet run
 # Access: http://localhost:5267 (Swagger: http://localhost:5267)
 ```
 
-### 5. **Run Email Service**
+### 6. **Run Email Service**
 ```bash
 cd EmailService.WebApi
 dotnet run
 # Access: http://localhost:5030 (Swagger: http://localhost:5030)
 ```
+
+> **🔒 Security Note**: All services use environment variables for database connections and sensitive configuration.
 
 ## 🔗 API Endpoints
 
@@ -275,7 +300,44 @@ services.AddScoped<ITemplateService, TemplateService>();
 ### **CMS Integration**
 TMS uses CMS services internally for document storage while exposing only TMS-specific endpoints.
 
-## 📝 Development Notes
+## � Troubleshooting
+
+### **Database Connection Issues**
+If you get "Instance failure" errors:
+
+1. **Check SQL Server Status**:
+   ```powershell
+   Get-Service -Name "*SQL*" | Where-Object {$_.Status -eq "Running"}
+   ```
+
+2. **For Local SQLEXPRESS**: Services automatically use named pipes for better reliability
+3. **For Remote Servers**: Ensure SQL Server Browser service is running
+4. **Connection String**: Verify your `.env` file has correct database server name
+
+### **Missing Environment Variables**
+```bash
+# Ensure .env files exist and contain:
+DB_SERVER=YOUR_SERVER\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
+
+# For EmailService, also add:
+SMTP_HOST=your-smtp-host
+SMTP_PORT=587
+SMTP_USERNAME=your-email@domain.com
+SMTP_PASSWORD=your-password
+```
+
+### **Port Conflicts**
+Default ports:
+- CMS: 5077 (HTTP), 7276 (HTTPS)  
+- TMS: 5267 (HTTP)
+- EmailService: 5030 (HTTP)
+
+Change in `Properties/launchSettings.json` if needed.
+
+## �📝 Development Notes
 
 - **Architecture**: Clean separation between CMS (storage) and TMS (processing)
 - **Security**: Controller exclusion prevents exposing internal CMS endpoints

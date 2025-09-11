@@ -52,6 +52,19 @@ Template Processing Pipeline:
 
 ## ⚙️ Configuration
 
+### **🔒 Environment Variables Setup**
+
+**Security First**: TMS uses environment variables for all sensitive configuration. Database credentials and connection strings are never stored in source code.
+
+Create a `.env` file in the TMS.WebApi project root:
+```env
+# Database Configuration (shared with CMS)
+DB_SERVER=SALEH-PC\\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
+```
+
 ### **appsettings.json**
 ```json
 {
@@ -80,7 +93,14 @@ Template Processing Pipeline:
 
 ## 🏃‍♂️ Quick Start
 
-### 1. **Build and Start the TMS API**
+### 1. **Environment Setup**
+```bash
+# Copy the environment template and configure it
+cp .env.template .env
+# Edit .env with your database server details
+```
+
+### 2. **Build and Start the TMS API**
 ```bash
 # Option 1: Run TMS standalone
 cd TMS.WebApi
@@ -410,10 +430,13 @@ soffice --version
 soffice --headless --convert-to pdf document.docx
 ```
 
-### **Database Connectivity**
+### **Environment Variables**
 ```bash
-# Verify connection string in appsettings.json
-"DefaultConnection": "Data Source=SALEH-PC\\SQLEXPRESS;Initial Catalog=CmsDatabase_Dev;..."
+# Ensure .env file exists with correct database configuration
+DB_SERVER=YOUR_SERVER\\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
 ```
 
 ### **File Permissions**

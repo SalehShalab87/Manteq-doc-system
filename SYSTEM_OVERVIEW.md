@@ -22,16 +22,18 @@ A comprehensive document management and automation system consisting of three in
 ## 🔧 System Components
 
 ### 1. CMS (Content Management System)
-**Port**: 5000 (HTTP) / 7000 (HTTPS)
+**Port**: 5077 (HTTP) / 7276 (HTTPS)
 - **Purpose**: Document storage and retrieval
 - **Key Features**:
   - Document registration and storage
   - File retrieval and management
   - Template management for CMS
   - Direct file upload/download
+- **Security**: Environment variable configuration
+- **Database**: Shared CmsDatabase_Dev with TMS and EmailService
 
 ### 2. TMS (Template Management System) 
-**Port**: 5020 (HTTP) / 7020 (HTTPS)
+**Port**: 5267 (HTTP) 
 - **Purpose**: Template-based document generation
 - **Key Features**:
   - Template registration with placeholder extraction
@@ -39,9 +41,11 @@ A comprehensive document management and automation system consisting of three in
   - Multiple export formats (Word, PDF, HTML, EmailHtml)
   - Document embedding (templates within templates)
   - LibreOffice integration for format conversion
+- **Security**: Environment variable configuration
+- **Integration**: Uses CMS services for document storage
 
 ### 3. Email Service
-**Port**: 5030 (HTTP) / 7030 (HTTPS)
+**Port**: 5030 (HTTP)
 - **Purpose**: Email automation with document integration
 - **Key Features**:
   - Send emails with TMS-generated content
@@ -49,6 +53,8 @@ A comprehensive document management and automation system consisting of three in
   - Multiple SMTP account support
   - EmailHtml format for embedded email content
   - Smart attachment handling
+- **Security**: Environment variable configuration for SMTP credentials
+- **Integration**: Uses both TMS (templates) and CMS (documents) services
 
 ## 📋 Complete API Reference
 
@@ -302,27 +308,78 @@ dotnet build TMS.WebApi/TMS.WebApi.sln
 dotnet build EmailService.WebApi/EmailService.WebApi.sln
 ```
 
-## 🐛 Troubleshooting
+## � Security Implementation
+
+### Environment Variable Configuration
+All sensitive data is stored in `.env` files (excluded from version control):
+
+**Database Configuration** (all services):
+```env
+DB_SERVER=YOUR_SERVER\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
+```
+
+**SMTP Configuration** (EmailService only):
+```env
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@domain.com
+SMTP_PASSWORD=your-app-password
+EMAIL_DISPLAY_NAME=Your Display Name
+```
+
+### Setup Process
+1. Copy `.env.template` files to `.env` in each service directory
+2. Fill in your specific values (server names, credentials)
+3. **Never commit `.env` files** - they're automatically ignored by git
+
+### Connection Reliability
+- **Local SQLEXPRESS**: Automatically uses named pipes for better reliability
+- **Remote SQL Server**: Uses TCP/IP with connection timeout handling
+- **Auto-Detection**: System automatically chooses the best connection method
+
+## �🐛 Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection**
-   - Verify SQL Server is running
-   - Check connection string format
-   - Ensure database is created
+1. **Database Connection Issues**
+   ```bash
+   # Check SQL Server Status
+   Get-Service -Name "*SQL*" | Where-Object {$_.Status -eq "Running"}
+   
+   # Create database if missing
+   sqlcmd -S "YOUR_SERVER\SQLEXPRESS" -E -Q "CREATE DATABASE CmsDatabase_Dev"
+   ```
+   
+   **Solution**: Services automatically use named pipes for local SQLEXPRESS instances
 
-2. **LibreOffice Not Found**
+2. **Environment Variables Not Loading**
+   - Ensure `.env` files exist in service root directories
+   - Verify file format (no quotes around values)
+   - Check file encoding (UTF-8)
+
+3. **LibreOffice Not Found** (TMS only)
    - Install LibreOffice
    - Verify installation path in TMS logs
 
-3. **Email Authentication**
-   - Use App Password for Outlook
-   - Enable 2FA on Microsoft account
+4. **Email Authentication** (EmailService only)
+   - Use App Password for Outlook/Gmail
+   - Enable 2FA on email account
    - Check firewall settings for SMTP port 587
 
-4. **Port Conflicts**
-   - Default ports: CMS(5000), TMS(5020), Email(5030)
-   - Modify in `launchSettings.json` if needed
+5. **Port Conflicts**
+   - Default ports: CMS(5077), TMS(5267), EmailService(5030)
+   - Modify in `Properties/launchSettings.json` if needed
+
+6. **Missing .env Files**
+   ```bash
+   # Copy templates and configure
+   cp CMS.Webapi/.env.template CMS.Webapi/.env
+   cp TMS.WebApi/.env.template TMS.WebApi/.env  
+   cp EmailService.WebApi/.env.template EmailService.WebApi/.env
+   ```
 
 ### Logs
 All services provide detailed logging:
