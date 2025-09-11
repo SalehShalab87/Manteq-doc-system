@@ -1,0 +1,108 @@
+{
+  "EmailService_WithTMSGeneration": {
+    "description": "Send email with TMS-generated document content (EmailHtml)",
+    "endpoint": "POST http://localhost:5030/api/email/send-with-template",
+    "payload": {
+      "toRecipients": ["salehshalab2@gmail.com"],
+      "ccRecipients": ["s.shalab@manteq-me.com"],
+      "subject": "Your Insurance Policy Documentation - Policy #POL-2025-001234",
+      "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+      "propertyValues": {
+        "ICS_CustomerName": "Ahmed Al-Mansouri",
+        "ICS_PolicyNumber": "POL-2025-001234",
+        "ICS_PolicyStartDate": "2025-09-11",
+        "ICS_PolicyEndDate": "2026-09-11",
+        "ICS_SupportEmail": "support@manteq-me.com",
+        "ICS_SupportPhone": "+971-4-123-4567",
+        "ICS_Signature": "Best Regards,\nManteq Insurance Customer Service Team"
+      },
+      "exportFormat": "EmailHtml"
+    }
+  },
+
+  "EmailService_WithCMSAttachment": {
+    "description": "Send email with existing CMS document as attachment",
+    "endpoint": "POST http://localhost:5030/api/email/send-with-documents",
+    "payload": {
+      "toRecipients": ["salehshalab2@gmail.com"],
+      "ccRecipients": ["s.shalab@manteq-me.com"],
+      "subject": "Policy Documents - Reference #CED4E35B",
+      "htmlBody": "Dear Valued Customer,<br><br>Please find attached your requested policy documents.<br><br>If you have any questions, please don't hesitate to contact our support team.<br><br>Best regards,<br>Manteq Insurance Team<br><br>Phone: +971-4-123-4567<br>Email: support@manteq-me.com",
+      "cmsDocumentIds": ["CED4E35B-134C-4002-BED1-DE26D3DABE89"]
+    }
+  },
+
+  "EmailService_WithMainTemplate": {
+    "description": "Send email using main template (without embedding) - Note: Email service doesn't support embedding directly",
+    "endpoint": "POST http://localhost:5030/api/email/send-with-template",
+    "payload": {
+      "toRecipients": ["fatima.alzayyani@example.com"],
+      "ccRecipients": ["underwriting@manteq-me.com"],
+      "subject": "Complete Policy Package - Policy #POL-2025-011111",
+      "templateId": "5ab6685f-1892-4c55-8f6e-fdcbbb8fb733",
+      "propertyValues": {
+        "ICS_CustomerName": "Fatima Al-Zayyani",
+        "ICS_QuotationNumber": "QUO-2025-01111",
+        "ICS_PolicyNumber": "POL-2025-011111", 
+        "ICS_PolicyStartDate": "2025-11-01",
+        "ICS_PolicyEndDate": "2026-11-01",
+        "ICS_Benefit1_Name": "Travel Insurance",
+        "ICS_Benefit1_Coverage": "Worldwide Travel Protection",
+        "ICS_Benefit1_Limit": "AED 100,000",
+        "ICS_Benefit2_Name": "Baggage Coverage", 
+        "ICS_Benefit2_Coverage": "Lost or Delayed Baggage",
+        "ICS_Benefit2_Limit": "AED 15,000",
+        "ICS_Term1": "Coverage for trips up to 90 days",
+        "ICS_Term2": "24/7 emergency assistance hotline",
+        "ICS_Term3": "Pre-existing medical conditions excluded"
+      },
+      "exportFormat": "EmailHtml"
+    }
+  },
+
+  "EmailService_MultipleAttachments": {
+    "description": "Send email with multiple CMS documents",
+    "endpoint": "POST http://localhost:5030/api/email/send-with-documents",
+    "payload": {
+      "toRecipients": ["client@example.com", "backup.contact@example.com"],
+      "ccRecipients": ["account.manager@manteq-me.com"],
+      "subject": "Complete Insurance Package - All Required Documents",
+      "htmlBody": "Dear Client,<br><br>Your complete insurance package is ready. Please find all required documents attached:<br><br>1. Policy Certificate<br>2. Terms and Conditions<br>3. Claim Procedures<br>4. Contact Information<br><br>Please review all documents carefully and contact us if you have any questions.<br><br>Thank you for choosing Manteq Insurance.<br><br>Best regards,<br>Customer Service Team<br>Manteq Insurance<br>Phone: +971-4-123-4567<br>Email: support@manteq-me.com",
+      "cmsDocumentIds": [
+        "CED4E35B-134C-4002-BED1-DE26D3DABE89"
+      ]
+    }
+  },
+
+  "EmailService_WithBothTMSAndCMS": {
+    "description": "Complex email with TMS-generated content AND CMS attachments",
+    "note": "This would require a custom endpoint or two separate calls",
+    "approach": "1. Generate document via TMS, 2. Send email with both generated content and CMS attachments",
+    "step1_tms_generation": {
+      "endpoint": "POST http://localhost:5267/api/templates/generate",
+      "payload": {
+        "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+        "propertyValues": {
+          "ICS_CustomerName": "Mohammed Al-Rashid",
+          "ICS_PolicyNumber": "POL-2025-002222",
+          "ICS_PolicyStartDate": "2025-12-01",
+          "ICS_PolicyEndDate": "2026-12-01",
+          "ICS_SupportEmail": "support@manteq-me.com",
+          "ICS_SupportPhone": "+971-4-123-4567",
+          "ICS_Signature": "Warm regards,\nManteq Insurance Team"
+        },
+        "exportFormat": "EmailHtml",
+        "generatedBy": "Email Service Integration"
+      }
+    },
+    "step2_email_with_attachment": {
+      "endpoint": "POST http://localhost:5030/api/email/send-with-documents", 
+      "payload": {
+        "toRecipients": ["mohammed.alrashid@example.com"],
+        "subject": "Policy Confirmation with Supporting Documents",
+        "htmlBody": "{{USE_TMS_GENERATED_HTML_CONTENT_HERE}}",
+        "cmsDocumentIds": ["CED4E35B-134C-4002-BED1-DE26D3DABE89"]
+      }
+    }
+  }
+}

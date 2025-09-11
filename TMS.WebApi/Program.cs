@@ -156,11 +156,11 @@ using (var scope = app.Services.CreateScope())
 app.Logger.LogInformation("🚀 Template Management System (TMS) API is starting...");
 app.Logger.LogInformation("📋 Available endpoints:");
 app.Logger.LogInformation("   POST /api/templates/register - Register new template");
-app.Logger.LogInformation("   GET  /api/templates/{id} - Retrieve template");
-app.Logger.LogInformation("   GET  /api/templates/{id}/properties - Get template properties");
+app.Logger.LogInformation("   GET  /api/templates/{{id}} - Retrieve template");
+app.Logger.LogInformation("   GET  /api/templates/{{id}}/properties - Get template properties");
 app.Logger.LogInformation("   POST /api/templates/generate - Generate document from template");
 app.Logger.LogInformation("   POST /api/templates/generate-with-embeddings - Generate document with embeddings");
-app.Logger.LogInformation("   GET  /api/templates/download/{id} - Download generated document");
+app.Logger.LogInformation("   GET  /api/templates/download/{{id}} - Download generated document");
 app.Logger.LogInformation("🔧 Swagger UI available at: /");
 
 app.Run();

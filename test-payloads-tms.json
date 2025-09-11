@@ -1,0 +1,130 @@
+{
+  "TMS_DocumentGeneration_EmailTemplate": {
+    "description": "Generate document from email template",
+    "endpoint": "POST http://localhost:5267/api/templates/generate",
+    "payload": {
+      "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+      "propertyValues": {
+        "ICS_CustomerName": "Ahmed Al-Mansouri",
+        "ICS_PolicyNumber": "POL-2025-001234",
+        "ICS_PolicyStartDate": "2025-09-11",
+        "ICS_PolicyEndDate": "2026-09-11",
+        "ICS_SupportEmail": "support@manteq-me.com",
+        "ICS_SupportPhone": "+971-4-123-4567",
+        "ICS_Signature": "Best Regards,\nManteq Insurance Team"
+      },
+      "exportFormat": "EmailHtml",
+      "generatedBy": "TMS Test User"
+    }
+  },
+
+  "TMS_DocumentGeneration_MainTemplate": {
+    "description": "Generate document from main template (without embedding)",
+    "endpoint": "POST http://localhost:5267/api/templates/generate", 
+    "payload": {
+      "templateId": "5ab6685f-1892-4c55-8f6e-fdcbbb8fb733",
+      "propertyValues": {
+        "ICS_CustomerName": "Sarah Al-Zahra",
+        "ICS_QuotationNumber": "QUO-2025-00789",
+        "ICS_PolicyNumber": "POL-2025-005678",
+        "ICS_PolicyStartDate": "2025-09-15",
+        "ICS_PolicyEndDate": "2026-09-15",
+        "ICS_Benefit1_Name": "Medical Coverage",
+        "ICS_Benefit1_Coverage": "Comprehensive Health Insurance",
+        "ICS_Benefit1_Limit": "AED 500,000",
+        "ICS_Benefit2_Name": "Dental Coverage",
+        "ICS_Benefit2_Coverage": "Full Dental Care",
+        "ICS_Benefit2_Limit": "AED 50,000",
+        "ICS_Term1": "Coverage is valid 24/7 worldwide",
+        "ICS_Term2": "Claim processing within 48 hours",
+        "ICS_Term3": "Direct billing with approved hospitals"
+      },
+      "exportFormat": "Word",
+      "generatedBy": "TMS Test User"
+    }
+  },
+
+  "TMS_DocumentEmbedding_MainWithChild": {
+    "description": "Generate main template with embedded child template",
+    "endpoint": "POST http://localhost:5267/api/templates/generate-with-embeddings",
+    "payload": {
+      "mainTemplateId": "5ab6685f-1892-4c55-8f6e-fdcbbb8fb733",
+      "mainTemplateValues": {
+        "ICS_CustomerName": "Omar Al-Rashid",
+        "ICS_QuotationNumber": "QUO-2025-00999",
+        "ICS_PolicyNumber": "POL-2025-009999",
+        "ICS_PolicyStartDate": "2025-10-01",
+        "ICS_PolicyEndDate": "2026-10-01",
+        "ICS_Benefit1_Name": "Life Insurance",
+        "ICS_Benefit1_Coverage": "Term Life Insurance",
+        "ICS_Benefit1_Limit": "AED 1,000,000",
+        "ICS_Benefit2_Name": "Disability Insurance", 
+        "ICS_Benefit2_Coverage": "Total & Permanent Disability",
+        "ICS_Benefit2_Limit": "AED 750,000",
+        "ICS_Term1": "Premium payments monthly",
+        "ICS_Term2": "Grace period of 30 days",
+        "ICS_Term3": "Policy loans available after 2 years"
+      },
+      "embeddings": [
+        {
+          "embedPlaceholder": "<<ICS_Include_Doc2>>",
+          "embedTemplateId": "d8a8396b-c9f5-4e92-9698-a3839fa04f18",
+          "embedTemplateValues": {
+            "ICS_Term4": "Additional terms and conditions apply",
+            "ICS_Term5": "Subject to underwriting approval",
+            "ICS_Benefit3_Name": "Critical Illness Coverage",
+            "ICS_Benefit3_Coverag": "Coverage for 25+ critical illnesses",
+            "ICS_Benefit3_Limit": "AED 300,000",
+            "ICS_Benefit4_Coverage": "Personal Accident Coverage",
+            "ICS_Benefit4_Name": "Accidental Death & Dismemberment",
+            "ICS_Benefit4_Limit": "AED 200,000"
+          }
+        }
+      ],
+      "exportFormat": "Pdf",
+      "generatedBy": "PDF Embedding Test User"
+    }
+  },
+
+  "TMS_DocumentEmbedding_EmailFormat": {
+    "description": "Generate main template with embedded child for email",
+    "endpoint": "POST http://localhost:5267/api/templates/generate-with-embeddings",
+    "payload": {
+      "mainTemplateId": "5ab6685f-1892-4c55-8f6e-fdcbbb8fb733",
+      "mainTemplateValues": {
+        "ICS_CustomerName": "Fatima Al-Zayyani",
+        "ICS_QuotationNumber": "QUO-2025-01111",
+        "ICS_PolicyNumber": "POL-2025-011111",
+        "ICS_PolicyStartDate": "2025-11-01",
+        "ICS_PolicyEndDate": "2026-11-01",
+        "ICS_Benefit1_Name": "Travel Insurance",
+        "ICS_Benefit1_Coverage": "Worldwide Travel Protection",
+        "ICS_Benefit1_Limit": "AED 100,000",
+        "ICS_Benefit2_Name": "Baggage Coverage",
+        "ICS_Benefit2_Coverage": "Lost or Delayed Baggage",
+        "ICS_Benefit2_Limit": "AED 15,000",
+        "ICS_Term1": "Coverage for trips up to 90 days",
+        "ICS_Term2": "24/7 emergency assistance",
+        "ICS_Term3": "Pre-existing medical conditions excluded"
+      },
+      "embeddings": [
+        {
+          "embedPlaceholder": "<<ICS_Include_Doc2>>",
+          "embedTemplateId": "d8a8396b-c9f5-4e92-9698-a3839fa04f18",
+          "embedTemplateValues": {
+            "ICS_Term4": "Emergency evacuation up to AED 500,000",
+            "ICS_Term5": "Trip cancellation coverage included",
+            "ICS_Benefit3_Name": "Sports Coverage",
+            "ICS_Benefit3_Coverag": "Adventure sports and activities",
+            "ICS_Benefit3_Limit": "AED 75,000",
+            "ICS_Benefit4_Coverage": "Business Equipment Coverage",
+            "ICS_Benefit4_Name": "Laptop and Business Items",
+            "ICS_Benefit4_Limit": "AED 25,000"
+          }
+        }
+      ],
+      "exportFormat": "EmailHtml",
+      "generatedBy": "Email Embedding Test"
+    }
+  }
+}

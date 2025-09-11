@@ -15,6 +15,7 @@ namespace TMS.WebApi.Services
         Task<byte[]> DownloadGeneratedDocumentAsync(Guid generationId);
         Task<string> GetGeneratedDocumentPathAsync(Guid generationId);
         Task<bool> CleanupExpiredDocumentsAsync();
+        Task<string> ConvertDocumentFormatAsync(string inputPath, string outputPath, ExportFormat exportFormat);
     }
 
     public class DocumentGenerationService : IDocumentGenerationService
@@ -39,8 +40,11 @@ namespace TMS.WebApi.Services
             _logger = logger;
             _tmsSettings = tmsSettings.Value;
             
-            // Create output directory for generated documents
-            _outputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedDocuments");
+            // Use shared storage path from configuration, fallback to current directory
+            var sharedStoragePath = _tmsSettings.SharedStoragePath ?? 
+                                  Path.Combine(Directory.GetCurrentDirectory(), "GeneratedDocuments");
+            _outputDirectory = sharedStoragePath;
+            
             if (!Directory.Exists(_outputDirectory))
             {
                 Directory.CreateDirectory(_outputDirectory);
@@ -230,13 +234,29 @@ namespace TMS.WebApi.Services
             }
         }
 
+        public async Task<string> ConvertDocumentFormatAsync(string inputPath, string outputPath, ExportFormat exportFormat)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Converting document from {InputPath} to {ExportFormat} format", inputPath, exportFormat);
+                var convertedPath = await ConvertToRequestedFormatAsync(inputPath, outputPath, exportFormat);
+                _logger.LogInformation("✅ Document format conversion completed: {ConvertedPath}", convertedPath);
+                return convertedPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Failed to convert document format from {InputPath} to {ExportFormat}", inputPath, exportFormat);
+                throw;
+            }
+        }
+
         private async Task<string> CreateWorkingCopyAsync(string templateFilePath, Guid generationId)
         {
             var workingFileName = $"working_{generationId:N}_{Path.GetFileName(templateFilePath)}";
             var workingPath = Path.Combine(_outputDirectory, workingFileName);
             
-            // Create working copy
-            File.Copy(templateFilePath, workingPath, true);
+            // Create working copy asynchronously
+            await Task.Run(() => File.Copy(templateFilePath, workingPath, true));
             
             _logger.LogDebug("Created working copy: {WorkingPath}", workingPath);
             return workingPath;
@@ -655,7 +675,7 @@ namespace TMS.WebApi.Services
                 try
                 {
                     var htmlContent = File.ReadAllText(htmlPath);
-                    var htmlDirectory = Path.GetDirectoryName(htmlPath);
+                    var htmlDirectory = Path.GetDirectoryName(htmlPath) ?? _outputDirectory;
                     
                     // Convert external image references to base64 embedded images
                     var emailHtml = ConvertImagesToBase64(htmlContent, htmlDirectory);
@@ -1118,7 +1138,7 @@ namespace TMS.WebApi.Services
                 {
                     if (File.Exists(document.FilePath))
                     {
-                        File.Delete(document.FilePath);
+                        await Task.Run(() => File.Delete(document.FilePath));
                         _logger.LogDebug("Deleted expired file: {FilePath}", document.FilePath);
                     }
                     

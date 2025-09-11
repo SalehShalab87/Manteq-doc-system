@@ -100,11 +100,22 @@ namespace CMS.WebApi.Services
                     return null;
                 }
 
-                // Verify file still exists
+                // Verify file still exists - graceful handling for production
                 if (!File.Exists(document.FilePath))
                 {
-                    _logger.LogError("Document file not found on disk: {FilePath}", document.FilePath);
-                    throw new FileNotFoundException("Document file not found on disk");
+                    _logger.LogWarning("Document file not found on disk - file may have been deleted: {FilePath}", document.FilePath);
+                    
+                    // Return metadata but indicate file is unavailable
+                    return new RetrieveDocumentResponse
+                    {
+                        Id = document.Id,
+                        Name = document.Name + " [FILE MISSING]",
+                        Author = document.Author,
+                        CreationDate = document.CreationDate,
+                        Type = document.Type,
+                        Size = document.Size,
+                        DownloadUrl = "" // Empty string indicates download not available
+                    };
                 }
 
                 var baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7000";
@@ -135,12 +146,13 @@ namespace CMS.WebApi.Services
 
             if (document == null)
             {
-                throw new FileNotFoundException("Document not found");
+                throw new FileNotFoundException("Document not found in database");
             }
 
             if (!File.Exists(document.FilePath))
             {
-                throw new FileNotFoundException("Document file not found on disk");
+                _logger.LogWarning("Document file missing from disk: {DocumentId} - {FilePath}", id, document.FilePath);
+                throw new FileNotFoundException($"Document file not found on disk: {document.Name}");
             }
 
             return document.FilePath;

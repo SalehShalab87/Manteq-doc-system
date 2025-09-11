@@ -52,13 +52,46 @@ namespace EmailService.WebApi.Services
 
             _logger.LogInformation("Successfully retrieved CMS document: {FileName}, Size: {Size} bytes", cmsDoc.Name, fileContent.Length);
 
+            // Construct proper filename with extension
+            var fileName = GetFileNameWithExtension(cmsDoc.Name, cmsDoc.Type, filePath);
+
             return new CmsDocument
             {
                 Id = cmsDoc.Id,
-                FileName = cmsDoc.Name,
+                FileName = fileName,
                 FileContent = fileContent,
-                ContentType = GetMimeType(cmsDoc.Name)
+                ContentType = GetMimeType(fileName)
             };
+        }
+
+        private static string GetFileNameWithExtension(string name, string type, string filePath)
+        {
+            // If name already has an extension, use it as-is
+            if (Path.HasExtension(name))
+            {
+                return name;
+            }
+
+            // Try to get extension from the file path
+            var extensionFromPath = Path.GetExtension(filePath);
+            if (!string.IsNullOrEmpty(extensionFromPath))
+            {
+                return name + extensionFromPath;
+            }
+
+            // Fallback: map document type to extension
+            var extension = type.ToLowerInvariant() switch
+            {
+                "word" => ".docx",
+                "excel" => ".xlsx",
+                "powerpoint" => ".pptx",
+                "pdf" => ".pdf",
+                "text" => ".txt",
+                "html" => ".html",
+                _ => ".bin" // Generic binary extension
+            };
+
+            return name + extension;
         }
 
         private static string GetMimeType(string fileName)

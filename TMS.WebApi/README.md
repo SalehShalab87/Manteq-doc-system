@@ -1,91 +1,158 @@
 # 🎯 TMS Web API - Template Management System
 
-A powerful Template Management System (TMS) built with ASP.NET Core 9.0 that transforms Office documents into dynamic document generation engines. **Part of the Manteq Document System** - provides advanced template processing and document generation capabilities.
+**Template processing engine** that transforms Office d### **🔒 Environment Variables (Required)**
+Create `.env` file in the TMS.WebApi directory:
 
-## 🏗️ Role in Manteq Document System
-
-The TMS serves as the **intelligent processing layer** that transforms static templates into dynamic documents:
-
-```
-Template Processing Pipeline:
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Upload    │───▶│  Register   │───▶│  Generate   │───▶│  Download   │
-│  Template   │    │  Template   │    │  Document   │    │  Document   │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-      │                    │                  │                  │
-   .docx/.xlsx          Extract           Fill Data           Auto-download
-   .pptx files        Placeholders        + Convert            Available
-```
-
-## 🚀 Key Features
-
-### **Template Management**
-- ✅ **Office Document Support**: Word (.docx), Excel (.xlsx), PowerPoint (.pptx)
-- ✅ **Placeholder Extraction**: Automatic detection of DOCPROPERTY fields
-- ✅ **Template Registration**: Store and manage template metadata
-- ✅ **Property Discovery**: Retrieve available placeholders from templates
-
-### **Document Generation**
-- ✅ **Dynamic Replacement**: Fill templates with custom data
-- ✅ **Multiple Export Formats**: Word, HTML, Email HTML, PDF, Original
-- ✅ **Auto-download Option**: Direct file download with `?autoDownload=true`
-- ✅ **Batch Processing**: Generate multiple documents with embeddings
-
-### **Email-Optimized HTML**
-- ✅ **Base64 Embedded Images**: No external image dependencies
-- ✅ **Email-Client Compatibility**: Optimized styling for email clients
-- ✅ **LibreOffice Field Cleanup**: Remove unprocessed field references
-- ✅ **Responsive Elements**: Mobile-friendly email layouts
-
-### **Advanced Features**
-- ✅ **Document Embedding**: Compose multiple templates into single documents
-- ✅ **LibreOffice Integration**: High-quality format conversion
-- ✅ **Configurable Cleanup**: Auto-remove generated files
-- ✅ **Comprehensive Logging**: Detailed operation tracking
-
-## 📋 Prerequisites
-
-- .NET 9.0 SDK
-- SQL Server Express (shared with CMS)
-- **LibreOffice** (required for format conversion)
-- CMS Web API (for document storage)
-
-## ⚙️ Configuration
-
-### **🔒 Environment Variables Setup**
-
-**Security First**: TMS uses environment variables for all sensitive configuration. Database credentials and connection strings are never stored in source code.
-
-Create a `.env` file in the TMS.WebApi project root:
+**File: `TMS.WebApi/.env`**
 ```env
-# Database Configuration (shared with CMS)
-DB_SERVER=SALEH-PC\\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev
+DB_SERVER=YOUR_SERVER\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev  
 DB_INTEGRATED_SECURITY=true
 DB_TRUST_SERVER_CERTIFICATE=true
 ```
 
-### **appsettings.json**
+### **📁 Storage Configuration**
+```json
+// appsettings.json (no database credentials here!)
+{
+  "FileStorage": {
+    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // For internal CMS services
+  },
+  "TMS": {
+    "DocumentRetentionHours": 0.25,        // 15 minutes retentionmic document generators. Built with ASP.NET Core 9.0 and LibreOffice integration.
+
+> 🎯 **Role**: Intelligent document processing layer that converts static templates into data-driven documents with multiple export formats.
+
+## 🏗️ Architecture Integration
+
+The TMS serves as the **document processing hub** in the Manteq ecosystem:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                MANTEQ DOCUMENT SYSTEM                   │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  📧 Email Service ────── 🎯 TMS API ────── 📁 CMS API   │
+│  (Port 5030)           (Port 5267)      (Port 5000)   │
+│                                                         │
+│  Calls TMS to          Template Engine   Stores ALL    │
+│  generate EmailHtml    + LibreOffice     documents     │
+│  content for emails    + Placeholders    permanently   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+                            │
+                ┌───────────┴────────────┐
+                │    PROCESSING FLOW     │
+                │                       │
+                │ 1. Register Template  │ → CMS stores file
+                │ 2. Extract Properties │ → Find {{placeholders}}
+                │ 3. Generate Document  │ → Fill data + convert
+                │ 4. Auto-Cleanup      │ → Remove after 15min
+                └───────────────────────┘
+```
+
+### **🔄 Service Integration**
+- **TMS → CMS**: Stores templates as documents (permanent)
+- **TMS → LibreOffice**: Converts documents to HTML/PDF formats  
+- **Email → TMS**: Requests EmailHtml generation for email content
+- **TMS Storage**: Generated documents auto-cleaned (temporary)
+
+## 🚀 Key Features
+
+### **📄 Template Management**
+- ✅ **Office Document Support**: Word (.docx), Excel (.xlsx), PowerPoint (.pptx)
+- ✅ **CMS Integration**: Templates stored permanently in shared CMS storage
+- ✅ **Placeholder Discovery**: Automatic extraction of {{PropertyName}} fields
+- ✅ **Template Metadata**: Name, description, and property tracking
+- ✅ **Property API**: Get available placeholders for dynamic form generation
+
+### **⚡ Document Generation**
+- ✅ **Dynamic Data Replacement**: Fill templates with custom property values
+- ✅ **Multiple Export Formats**: Word, HTML, EmailHtml, PDF, Original format
+- ✅ **LibreOffice Integration**: Professional-quality format conversion
+- ✅ **Auto-Download**: Direct file download with `?autoDownload=true` parameter
+- ✅ **Email-Optimized HTML**: Base64 embedded images for email compatibility
+
+### **🧹 Smart File Management**
+- ✅ **Auto-Cleanup**: Generated files removed every 5 minutes  
+- ✅ **Retention Policy**: 15-minute retention for downloaded files
+- ✅ **Shared Storage**: Production-grade file storage architecture
+- ✅ **Memory Efficiency**: In-memory tracking with disk cleanup
+
+### **📧 Email Service Features**
+- ✅ **EmailHtml Format**: Email-client compatible HTML with embedded images
+- ✅ **Field Cleanup**: LibreOffice field references automatically removed
+- ✅ **Responsive Design**: Mobile-friendly email layouts
+- ✅ **Base64 Images**: No external image dependencies for email clients
+
+### **🔧 Advanced Capabilities**
+- ✅ **Document Embedding**: Compose multiple templates into single documents
+- ✅ **Error Handling**: Comprehensive error responses and logging
+- ✅ **Performance Monitoring**: Detailed operation tracking and metrics
+- ✅ **Configurable Settings**: Customizable retention, cleanup, and file limits
+
+## 📋 Prerequisites
+
+- ✅ **.NET 9.0 SDK**
+- ✅ **SQL Server Express** (shared `CmsDatabase_Dev` with CMS)
+- ✅ **LibreOffice** - Download from https://www.libreoffice.org/download/
+- ✅ **CMS Web API** - Must be built and available for dependency injection
+- ✅ **Shared Storage** - `C:\ManteqStorage_Shared\` directories setup
+
+### **🔧 LibreOffice Installation**
+TMS requires LibreOffice for document conversion:
+```powershell
+# Download and install LibreOffice
+# TMS automatically detects installation at:
+# - C:\Program Files\LibreOffice\program\soffice.exe
+# - C:\Program Files (x86)\LibreOffice\program\soffice.exe
+
+# Verify installation
+Test-Path "C:\Program Files\LibreOffice\program\soffice.exe"
+```
+
+### **📁 Storage Architecture**
+```
+C:\ManteqStorage_Shared\
+├── CmsDocuments\      # Templates stored here (via CMS) - PERMANENT
+├── TmsGenerated\      # Generated documents - AUTO-CLEANED (15min)  
+└── TmsTemp\          # Processing workspace - IMMEDIATE CLEANUP
+```
+
+## ⚙️ Configuration
+
+
+### **📁 Storage Configuration**
 ```json
 {
+  "FileStorage": {
+    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // For internal CMS services
+  },
   "TMS": {
-    "DocumentRetentionHours": 0.0167,    // 1 minute (0.0167 hours)
-    "CleanupIntervalMinutes": 1,         // Cleanup every minute
-    "MaxFileSizeMB": 100,                // 100MB file size limit
+    "DocumentRetentionHours": 0.25,        // 15 minutes retention
+    "CleanupIntervalMinutes": 5,           // Cleanup every 5 minutes
+    "MaxFileSizeMB": 100,                  // 100MB file limit
     "AllowedFileTypes": [".docx", ".xlsx", ".pptx"],
-    "LibreOfficeTimeout": 30000          // 30 seconds timeout
+    "LibreOfficeTimeout": 30000,           // 30 seconds
+    "SharedStoragePath": "C:\\ManteqStorage_Shared\\TmsGenerated",  // Generated docs
+    "TempUploadPath": "C:\\ManteqStorage_Shared\\TmsTemp"           // Processing temp
   }
 }
 ```
 
-### **Development Settings**
+### **🧹 Cleanup Behavior**
+- **Templates**: ❌ **NEVER cleaned** - stored permanently in CMS storage
+- **Generated Documents**: ✅ **Auto-cleanup** every 5 minutes - removed after 15 minutes  
+- **Temp Files**: ✅ **Immediate cleanup** after processing
+
+### **⚖️ Development vs Production**
 ```json
+// Development (appsettings.Development.json)
 {
   "TMS": {
-    "DocumentRetentionHours": 0.0167,    // Same as production for testing
-    "CleanupIntervalMinutes": 1,         // Aggressive cleanup for dev
-    "MaxFileSizeMB": 50,                 // Smaller limit for development
-    "AllowedFileTypes": [".docx", ".xlsx", ".pptx"],
+    "DocumentRetentionHours": 0.25,      // Same retention
+    "CleanupIntervalMinutes": 5,         // Same cleanup
+    "MaxFileSizeMB": 50,                 // Smaller limit for dev
     "LibreOfficeTimeout": 30000
   }
 }
@@ -93,135 +160,244 @@ DB_TRUST_SERVER_CERTIFICATE=true
 
 ## 🏃‍♂️ Quick Start
 
-### 1. **Environment Setup**
-```bash
-# Copy the environment template and configure it
-cp .env.template .env
-# Edit .env with your database server details
+### **1. Setup Prerequisites**
+```powershell
+# Ensure CMS is built (TMS depends on CMS)
+cd ..\CMS.WebApi
+dotnet build
+
+# Ensure shared storage exists
+New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
+New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsGenerated" -Force
+New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsTemp" -Force
+
+# Verify LibreOffice installation
+Test-Path "C:\Program Files\LibreOffice\program\soffice.exe"
 ```
 
-### 2. **Build and Start the TMS API**
-```bash
-# Option 1: Run TMS standalone
+### **2. Build and Run TMS**
+```powershell
+# Option 1: Run TMS with CMS dependency
 cd TMS.WebApi
+dotnet build TMS.WebApi.sln  # Includes CMS project
 dotnet run
 
-# Option 2: Build using TMS solution (includes CMS dependency)
-cd TMS.WebApi
-dotnet build TMS.WebApi.sln
-dotnet run
-
-# Option 3: Build entire Manteq Document System
-cd .. # (from project root)
+# Option 2: Build entire Manteq system
+cd ..  # From repo root
 dotnet build ManteqDocumentSystem.sln
+cd TMS.WebApi
+dotnet run
 
-# Access TMS API: http://localhost:5267
-# Swagger UI: http://localhost:5267
+# 🌐 Access TMS API: http://localhost:5267
+# 📖 Swagger UI: http://localhost:5267/swagger
 ```
 
-### 2. **Register a Template**
+### **3. Test TMS Service**
+```powershell
+# Health check
+curl http://localhost:5267/api/templates/health
+# Expected: {"status": "healthy", "service": "TMS"}
+
+# Verify CMS integration
+curl http://localhost:5000/api/documents/health
+# CMS should also be accessible (TMS uses it internally)
+```
+
+### **4. Register Your First Template**
+```powershell
+# Upload a template file (creates document in CMS internally)
+curl -X POST "http://localhost:5267/api/templates/register" `
+     -F "file=@Email_Template.docx" `
+     -F "name=Customer Email Template" `
+     -F "description=Template for customer communications"
+
+# Response includes templateId for document generation
+```
+
+### **5. Generate Document from Template**
+```powershell
+# Generate document with data
+curl -X POST "http://localhost:5267/api/templates/generate" `
+     -H "Content-Type: application/json" `
+     -d '{
+       "templateId": "your-template-id",
+       "propertyValues": {
+         "CustomerName": "John Smith",
+         "PolicyNumber": "POL-2025-001"
+       },
+       "exportFormat": "EmailHtml",
+       "generatedBy": "Quick Start Test"
+     }'
+
+# Response includes downloadUrl for the generated file
+```
+
+> 🎉 **Success!** TMS is running and processing templates with CMS integration.
+```
+
+## 🌐 API Reference
+
+### **📝 Template Registration**
 ```http
-POST /api/templates/register
+POST http://localhost:5267/api/templates/register
 Content-Type: multipart/form-data
 
+Parameters:
+- file: Template file (.docx/.xlsx/.pptx) - Required
+- name: Template name - Required  
+- description: Template description - Optional
+```
+
+**Response:**
+```json
 {
-  "name": "Invoice Template",
-  "description": "Customer invoice template",
-  "category": "Financial",
-  "createdBy": "Admin",
-  "file": [template.docx]
+  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+  "name": "Customer Email Template",
+  "description": "Template for customer communications",
+  "message": "Template registered successfully",
+  "cmsDocumentId": "1d4c5082-021d-42a4-9f39-794671cf8bac",
+  "extractedProperties": ["CustomerName", "PolicyNumber", "SupportEmail"]
 }
 ```
 
-### 3. **Generate Document**
+### **📄 Template Information**
 ```http
-POST /api/templates/generate?autoDownload=true
+GET http://localhost:5267/api/templates/{templateId}
+GET http://localhost:5267/api/templates/{templateId}/properties
+```
+
+**Properties Response:**
+```json
+{
+  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+  "properties": [
+    {
+      "name": "CustomerName",
+      "type": "Text",
+      "required": true
+    },
+    {
+      "name": "PolicyNumber", 
+      "type": "Text",
+      "required": true
+    }
+  ]
+}
+```
+
+### **⚡ Document Generation**
+```http
+POST http://localhost:5267/api/templates/generate
 Content-Type: application/json
 
 {
-  "templateId": "your-template-id",
+  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
   "propertyValues": {
-    "CustomerName": "John Doe",
-    "InvoiceNumber": "INV-001",
-    "Amount": "$1,500.00"
+    "CustomerName": "John Smith",
+    "PolicyNumber": "POL-2025-001234"
   },
   "exportFormat": "EmailHtml",
   "generatedBy": "API User"
 }
 ```
 
-## 📚 API Reference
+**Generation Response:**
+```json
+{
+  "generationId": "abc123-def456-ghi789",
+  "message": "Document generated successfully", 
+  "fileName": "CustomerEmail_20250911_135230.html",
+  "fileSizeBytes": 15420,
+  "downloadUrl": "/api/templates/download/abc123-def456-ghi789",
+  "expiresAt": "2025-09-11T14:07:30Z",
+  "exportFormat": "EmailHtml",
+  "processedPlaceholders": 3
+}
+```
 
-### **1. Register Template**
-- **POST** `/api/templates/register`
-- **Purpose**: Upload and register new templates
-- **Content-Type**: `multipart/form-data`
-- **Response**: Template metadata with extracted placeholders
+### **📥 Document Download**
+```http
+GET http://localhost:5267/api/templates/download/{generationId}
+```
+Returns the generated file with appropriate headers.
 
-### **2. Retrieve Template**
-- **GET** `/api/templates/{id}`
-- **Purpose**: Get template information and properties
-- **Response**: Template details and available placeholders
+### **🔍 Health Check**
+```http
+GET http://localhost:5267/api/templates/health
+```
 
-### **3. Get Template Properties**
-- **GET** `/api/templates/{id}/properties`
-- **Purpose**: List all available placeholders in template
-- **Response**: Array of placeholder names and types
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "TMS", 
+  "timestamp": "2025-09-11T13:45:00Z",
+  "database": "connected",
+  "libreOffice": "available",
+  "cmsIntegration": "active"
+}
+```
 
-### **4. Generate Document**
-- **POST** `/api/templates/generate`
-- **Query Parameters**: 
-  - `autoDownload=true` (optional) - Return file directly
-- **Purpose**: Create document from template with custom data
-- **Export Formats**: `Word`, `Html`, `EmailHtml`, `Pdf`, `Original`
+## � Export Formats
 
-### **5. Generate with Embeddings**
-- **POST** `/api/templates/generate-with-embeddings`
-- **Query Parameters**: 
-  - `autoDownload=true` (optional) - Return file directly
-- **Purpose**: Advanced template composition with sub-templates
-
-### **6. Download Generated Document**
-- **GET** `/api/templates/download/{generationId}`
-- **Purpose**: Download previously generated documents
-- **Response**: File download with appropriate content-type
-
-## 🎯 Export Formats
-
-### **Word (.docx)**
+### **📄 Word (.docx)**
 ```json
 { "exportFormat": "Word" }
 ```
-- ✅ Preserves original formatting
-- ✅ Maintains document structure
-- ✅ Compatible with Microsoft Word
+- ✅ **Preserves formatting**: Original styling and layout maintained
+- ✅ **Document structure**: Headers, footers, tables intact  
+- ✅ **Microsoft compatibility**: Opens perfectly in Word
+- ✅ **Use case**: Official documents, contracts, reports
 
-### **HTML**
+### **🌐 HTML**
 ```json
 { "exportFormat": "Html" }
 ```
-- ✅ Web-compatible output
-- ✅ Clean HTML structure
-- ✅ CSS styling preserved
+- ✅ **Web-ready**: Direct embedding in websites
+- ✅ **Clean markup**: Semantic HTML structure
+- ✅ **CSS styling**: Responsive design elements
+- ✅ **Use case**: Web content, documentation sites
 
-### **Email HTML**
-```json
+### **📧 EmailHtml** ⭐ **Email Service Integration**
+```json  
 { "exportFormat": "EmailHtml" }
 ```
-- ✅ **Base64 embedded images** (no external files)
-- ✅ **Email-client optimized** styling
-- ✅ **LibreOffice field cleanup**
-- ✅ **Mobile-responsive** elements
+- ✅ **Base64 Images**: All images embedded (no external refs)
+- ✅ **Email clients**: Optimized for Outlook, Gmail, etc.
+- ✅ **Field cleanup**: LibreOffice artifacts removed
+- ✅ **Mobile responsive**: Works on all devices  
+- ✅ **Use case**: **Email content generation for Email Service**
 
-### **PDF**
+### **📋 PDF**
 ```json
 { "exportFormat": "Pdf" }
 ```
-- ✅ Professional document format
-- ✅ Print-ready output
-- ✅ Consistent cross-platform rendering
+- ✅ **Professional**: High-quality document rendering
+- ✅ **Print-ready**: Consistent formatting across platforms
+- ✅ **Searchable**: Text-based PDF with proper fonts
+- ✅ **Use case**: Invoices, certificates, legal documents
 
-## 🔧 Auto-Download Feature
+### **📂 Original**  
+```json
+{ "exportFormat": "Original" }
+```
+- ✅ **Unchanged format**: Keeps original file type
+- ✅ **Data replacement**: Placeholders filled, format preserved
+- ✅ **Use case**: When specific Office format required
+
+## ⚡ Auto-Download Feature
+
+Add `?autoDownload=true` to generation endpoints for immediate file return:
+
+```http
+POST http://localhost:5267/api/templates/generate?autoDownload=true
+# Returns file directly instead of generation metadata
+```
+
+**Benefits:**
+- 🚀 **Instant download**: No separate download call needed
+- 📱 **Mobile-friendly**: Direct file response  
+- 🔄 **Streamlined workflow**: Single API call for generation + download
 
 ### **Traditional Flow** (2 API calls)
 ```bash
@@ -291,173 +467,336 @@ Extracted Placeholders:
 - **Custom properties**: Document metadata properties
 - **Header/Footer placeholders**: Full document processing
 
-## 🧪 Testing Examples
+## 🧪 Testing the TMS
 
-### **Test Email HTML Generation**
-```bash
-curl -X POST "http://localhost:5267/api/templates/generate?autoDownload=true" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "templateId": "your-template-id",
-    "propertyValues": {
-      "CustomerName": "John Doe",
-      "PolicyNumber": "POL-123456",
-      "PolicyStartDate": "2025-09-10",
-      "PolicyEndDate": "2026-09-09"
-    },
-    "exportFormat": "EmailHtml",
-    "generatedBy": "Test User"
-  }' \
-  --output "test-email.html"
+### **🔍 Health Check Test**
+```powershell
+# Verify TMS is running and LibreOffice is available
+curl http://localhost:5267/api/templates/health
+
+# Expected response:
+# {"status": "healthy", "service": "TMS", "libreOffice": "available"}
 ```
 
-### **Verify Image Embedding**
-```bash
-# Check if images are embedded as base64
-grep -o "data:image/[^;]*;base64,[^\"]*" test-email.html
+### **📝 Template Registration Test**
+```powershell
+# Upload template (creates document in CMS internally)
+curl -X POST "http://localhost:5267/api/templates/register" `
+     -F "file=@Email_Template.docx" `
+     -F "name=Test Template" `
+     -F "description=Testing template registration"
+
+# Check template properties
+curl http://localhost:5267/api/templates/{templateId}/properties
 ```
 
-## 🚀 Integration Examples
+### **⚡ Document Generation Test**
+```powershell
+# Generate EmailHtml for email integration
+curl -X POST "http://localhost:5267/api/templates/generate" `
+     -H "Content-Type: application/json" `
+     -d '{
+       "templateId": "your-template-id",
+       "propertyValues": {
+         "CustomerName": "Test Customer",
+         "PolicyNumber": "TEST-001"
+       },
+       "exportFormat": "EmailHtml",
+       "generatedBy": "Test Suite"
+     }'
 
-### **Frontend Integration**
-```javascript
-// Generate and auto-download
-const response = await fetch('/api/templates/generate?autoDownload=true', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    templateId: 'template-id',
-    propertyValues: { CustomerName: 'John Doe' },
-    exportFormat: 'EmailHtml'
-  })
-});
-
-// Handle file download
-const blob = await response.blob();
-const url = window.URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = 'generated-document.html';
-a.click();
+# Verify base64 image embedding (for EmailHtml)
+# Generated HTML should contain: data:image/...;base64,...
 ```
 
-### **Email Service Integration**
-```csharp
-// Generate email-friendly HTML
-var request = new DocumentGenerationRequest
+### **📥 Auto-Download Test**
+```powershell
+# Generate and download immediately
+curl -X POST "http://localhost:5267/api/templates/generate?autoDownload=true" `
+     -H "Content-Type: application/json" `
+     -d '{...}' `
+     --output generated-document.html
+```
+
+### **🧹 Cleanup Verification**
+```powershell
+# Check generated files (should be cleaned up after 15 minutes)
+Get-ChildItem "C:\ManteqStorage_Shared\TmsGenerated\"
+
+# Check permanent templates (should remain)
+Get-ChildItem "C:\ManteqStorage_Shared\CmsDocuments\"
+```
+
+## � Integration Examples
+
+### **📧 Email Service Integration**
+The Email Service calls TMS to generate content:
+```http
+# Email Service calls TMS internally like this:
+POST http://localhost:5267/api/templates/generate
 {
-    TemplateId = templateId,
-    PropertyValues = customerData,
-    ExportFormat = ExportFormat.EmailHtml
-};
+  "templateId": "customer-email-template",
+  "propertyValues": { "CustomerName": "John Smith" },
+  "exportFormat": "EmailHtml"  // Email-optimized with base64 images
+}
 
-var response = await _tmsService.GenerateDocumentAsync(request);
-var htmlContent = await _tmsService.DownloadGeneratedDocumentAsync(response.GenerationId);
-
-// Send email with embedded images
-await _emailService.SendHtmlEmailAsync(recipient, subject, htmlContent);
+# TMS returns HTML content that becomes the email body
 ```
+
+### **🔧 .NET Service Integration**
+```csharp
+// Use TMS services directly in other .NET projects
+public class DocumentAutomationService
+{
+    private readonly IDocumentGenerationService _tmsGeneration;
+    
+    public DocumentAutomationService(IDocumentGenerationService tmsGeneration)
+    {
+        _tmsGeneration = tmsGeneration;
+    }
+    
+    public async Task<string> GenerateEmailContentAsync(Guid templateId, Dictionary<string, string> data)
+    {
+        var request = new DocumentGenerationRequest
+        {
+            TemplateId = templateId,
+            PropertyValues = data,
+            ExportFormat = ExportFormat.EmailHtml,
+            GeneratedBy = "Service Integration"
+        };
+        
+        var response = await _tmsGeneration.GenerateDocumentAsync(request);
+        // Returns HTML content ready for email
+        return response.Content;
+    }
+}
+```
+
 
 ## 📊 Performance & Cleanup
 
 ### **Automatic Cleanup**
-- ⏰ **Cleanup Interval**: Every 1 minute (configurable)
-- 🗑️ **Retention**: 1 minute (0.0167 hours)
-- 🧹 **Auto-removal**: Generated files deleted automatically
-- 💾 **Memory Efficient**: Temporary file tracking
+## 📊 Performance & Monitoring
 
-### **LibreOffice Integration**
+### **🧹 Automatic Cleanup System**
+- ⏰ **Cleanup Interval**: Every 5 minutes (configurable)
+- 🗑️ **Retention Policy**: 15 minutes (0.25 hours)  
+- 🧹 **Auto-removal**: Generated files deleted automatically
+- 💾 **Memory Efficient**: In-memory tracking with disk cleanup
+- 📊 **Storage Monitoring**: Track `TmsGenerated` directory size
+
+### **⚡ LibreOffice Performance**
 - ⚡ **Timeout**: 30 seconds (configurable)
 - 🔄 **Process Management**: Automatic cleanup of hanging processes
 - 📈 **High Quality**: Professional format conversion
-- 🖼️ **Image Handling**: Automatic base64 embedding for email
+- 🖼️ **Image Processing**: Automatic base64 embedding for EmailHtml
+- 🛠️ **Error Handling**: Graceful fallback when LibreOffice unavailable
 
-## 🔒 Security Features
+### **📈 Monitoring Metrics**
+```
+📊 Key Metrics to Watch:
+├── Generated documents per minute
+├── Average generation time  
+├── LibreOffice conversion success rate
+├── Cleanup efficiency (files removed vs created)
+├── Storage usage in TmsGenerated directory
+└── Template registration frequency
+```
 
-### **Controller Exclusion**
+## 🔒 Security & Architecture
+
+### **🛡️ Controller Exclusion Pattern**
 ```csharp
-// TMS only exposes Template endpoints, not CMS endpoints
+// TMS automatically hides CMS endpoints from public API
 public class ControllerExclusionConvention : IControllerModelConvention
 {
-    // Automatically hides CMS controllers from TMS API
+    // Only TMS endpoints exposed, CMS used internally only
 }
 ```
 
-### **File Validation**
-- 📁 **Allowed Types**: Only .docx, .xlsx, .pptx files
-- 📏 **Size Limits**: Configurable file size restrictions
-- 🛡️ **Input Validation**: Comprehensive request validation
+### **📁 File Validation & Security**
+- � **Allowed Types**: Only `.docx`, `.xlsx`, `.pptx` files accepted
+- 📏 **Size Limits**: Configurable max file size (100MB default)
+- 🛡️ **Input Validation**: Comprehensive request validation and sanitization
+- 🔐 **Path Security**: Safe file naming with GUID-based storage
 
-## 🎯 Use Cases
+### **🏗️ Architecture Principles**
+- **🎯 Single Responsibility**: TMS processes templates, CMS stores documents
+- **🔄 Loose Coupling**: Services communicate via well-defined interfaces  
+- **📊 Configuration-Driven**: All settings externalized to appsettings.json
+- **⚡ Async-First**: Non-blocking operations throughout the pipeline
 
-### **Business Documents**
-- 📄 **Invoices**: Generate customer invoices from templates
-- 📋 **Contracts**: Create contracts with dynamic terms
-- 📊 **Reports**: Generate data-driven reports
-- 📧 **Email Templates**: Create email-optimized HTML
+## 🎯 Common Use Cases
 
-### **Integration Scenarios**
-- 🔄 **Workflow Automation**: Automated document generation
-- 📧 **Email Marketing**: Dynamic email content generation
-- 📱 **Mobile Apps**: Server-side document processing
-- 🌐 **Web Applications**: On-demand document creation
-
-## 🛠️ Development Notes
-
-### **Architecture Decisions**
-- **Separation of Concerns**: TMS processes, CMS stores
-- **Clean APIs**: Only TMS endpoints exposed to clients
-- **Configuration-Driven**: All settings externalized
-- **Async Processing**: Non-blocking operations throughout
-
-### **LibreOffice Dependency**
-```bash
-# Install LibreOffice (Windows)
-# Download from: https://www.libreoffice.org/download/download/
-# Common locations checked:
-# - C:\Program Files\LibreOffice\program\soffice.exe
-# - C:\Program Files (x86)\LibreOffice\program\soffice.exe
+### **📧 Email Automation (Primary Integration)**
+```
+Email Service → TMS → Generate EmailHtml → Send as email body
+• Customer communications
+• Invoice notifications  
+• Policy documents
+• Marketing templates
 ```
 
-## 📝 Troubleshooting
+### **📄 Business Document Generation**
+- **📊 Invoices**: Dynamic customer billing documents
+- **📋 Contracts**: Automated contract generation with custom terms
+- **📈 Reports**: Data-driven business reports
+- **📑 Certificates**: Personalized certificates and credentials
 
-### **LibreOffice Issues**
-```bash
-# Check if LibreOffice is installed and accessible
-soffice --version
+### **🌐 Web Application Integration**
+- **📱 Mobile Apps**: Server-side document processing
+- **🖥️ Web Dashboards**: On-demand document creation
+- **🔄 Workflow Systems**: Automated document steps
+- **📊 Data Export**: Convert data to formatted documents
 
-# Test conversion manually
-soffice --headless --convert-to pdf document.docx
+### **⚙️ Enterprise Automation**
+- **🔄 Batch Processing**: Generate multiple documents from templates
+- **📅 Scheduled Generation**: Time-based document creation
+- **🔗 API Integration**: RESTful document services
+- **📦 Document Packaging**: Combine multiple templates
+
+## 🛠️ Development & Deployment
+
+### **🏗️ Development Setup**
+```powershell
+# Prerequisites: CMS must be built first (dependency)
+cd ..\CMS.WebApi
+dotnet build
+
+# Build TMS with CMS dependency
+cd ..\TMS.WebApi
+dotnet build TMS.WebApi.sln
+
+# Verify LibreOffice installation
+Test-Path "C:\Program Files\LibreOffice\program\soffice.exe"
+
+# Run TMS
+dotnet run
 ```
 
-### **Environment Variables**
-```bash
-# Ensure .env file exists with correct database configuration
-DB_SERVER=YOUR_SERVER\\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
+### **🚀 Production Deployment**
+```powershell
+# Build for production
+dotnet publish TMS.WebApi.sln -c Release -o ./publish
+
+# Production checklist:
+# ✅ LibreOffice installed on production server
+# ✅ Shared storage accessible to all services  
+# ✅ Database connection string configured
+# ✅ File size and retention policies set appropriately
 ```
 
-### **File Permissions**
-```bash
-# Ensure TMS can write to GeneratedDocuments directory
-# Default: TMS.WebApi/GeneratedDocuments/
+### **🔧 Configuration for Production**
+```json
+{
+  "TMS": {
+    "DocumentRetentionHours": 1.0,         // Longer retention in prod
+    "CleanupIntervalMinutes": 15,          // Less frequent cleanup
+    "MaxFileSizeMB": 200,                  // Larger files allowed
+    "LibreOfficeTimeout": 60000            // Longer timeout for complex docs
+  }
+}
 ```
 
-## 🔗 Related Systems
+## ❌ Troubleshooting
 
-- **CMS Web API**: Document storage backend ([CMS README](../CMS.Webapi/README.md))
-- **Main System**: Complete documentation ([Main README](../README.md))
+### **🔍 LibreOffice Issues**
+```powershell
+# Check LibreOffice installation
+Test-Path "C:\Program Files\LibreOffice\program\soffice.exe"
+Test-Path "C:\Program Files (x86)\LibreOffice\program\soffice.exe"
+
+# Test manual conversion
+& "C:\Program Files\LibreOffice\program\soffice.exe" --headless --convert-to pdf --outdir . document.docx
+
+# If LibreOffice hangs, kill processes
+Get-Process soffice* | Stop-Process -Force
+```
+
+### **🗄️ Database Connection Problems**
+```sql
+-- Verify shared database exists
+USE master
+SELECT name FROM sys.databases WHERE name = 'CmsDatabase_Dev'
+
+-- Check Tables table exists (TMS creates it)
+USE CmsDatabase_Dev
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Templates'
+```
+
+### **📁 Storage Issues**
+```powershell
+# Verify storage directories exist and are accessible
+Test-Path "C:\ManteqStorage_Shared\CmsDocuments"      # Templates (permanent)
+Test-Path "C:\ManteqStorage_Shared\TmsGenerated"      # Generated docs (temp)
+Test-Path "C:\ManteqStorage_Shared\TmsTemp"           # Processing workspace
+
+# Check permissions
+Get-Acl "C:\ManteqStorage_Shared" | Format-List
+```
+
+### **🔗 CMS Integration Issues**
+```powershell
+# Verify CMS is built and available
+Test-Path "..\CMS.WebApi\bin\Debug\net9.0\CMS.WebApi.dll"
+
+# Test CMS service directly
+curl http://localhost:5000/api/documents/health
+
+# Check TMS can access CMS services
+curl http://localhost:5267/api/templates/health
+```
+
+### **🔄 Common Error Messages**
+- **"LibreOffice timeout"** → LibreOffice not responding, increase timeout or restart process
+- **"Template not found"** → Template ID invalid or cleanup removed generated file  
+- **"CMS integration failed"** → CMS service not available or database connection issue
+- **"Generated document expired"** → File removed by cleanup, check retention settings
+
+## 📚 Additional Resources
+
+### **🔗 Related Documentation**
+- **[Main System README](../README.md)** - Complete Manteq Document System overview
+- **[CMS README](../CMS.WebApi/README.md)** - Document storage service (TMS dependency)
+- **[Email Service README](../EmailService.WebApi/README.md)** - Email automation (uses TMS)
+- **[Team Developer Guide](../TEAM_GUIDE.md)** - Comprehensive development guide
+
+### **🌐 API Documentation**
+- **Swagger UI**: http://localhost:5267/swagger (when running)
+- **OpenAPI Spec**: Available at runtime for integration tools
+
+### **🧪 Testing Tools**
+- **Postman**: Import OpenAPI spec for complete API testing
+- **curl**: Command-line testing examples shown above
+- **LibreOffice**: Manual document conversion testing
 
 ---
 
-## 📞 Support
+## 📞 Support and Contact
 
-- **Author**: Saleh Shalab
-- **Email**: salehshalab2@gmail.com
-- **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **👨‍💻 Lead Developer**: Saleh Shalab
+- **📧 Email**: salehshalab2@gmail.com
+- **🌐 Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **🐛 Issues**: Use GitHub Issues for bug reports and feature requests
 
-**Status**: ✅ **Production Ready** - TMS provides comprehensive template management and document generation capabilities with professional-grade output quality.
+---
 
-The Template Management System transforms static Office documents into powerful, dynamic document generation engines with multiple export formats, auto-download capabilities, and seamless email integration.
+## ✅ Status: Production Ready
+
+🎉 **TMS Web API is fully operational and production-ready!**
+
+**✅ Core Features Complete:**
+- Template registration with CMS integration
+- Multi-format document generation (Word, HTML, EmailHtml, PDF)
+- LibreOffice integration for professional conversion
+- Auto-cleanup system with configurable retention
+- Email Service integration for HTML content generation
+
+**✅ Integration Status:**
+- ✅ CMS Integration: Fully implemented and tested
+- ✅ Email Service Ready: EmailHtml generation with base64 images
+- ✅ LibreOffice: High-quality document conversion
+- ✅ Database Schema: Stable with CMS foreign key relationships
+- ✅ Storage Architecture: Production-grade shared storage
+
+**🚀 The TMS transforms static Office documents into powerful, dynamic document generation engines with professional-grade output quality and seamless microservice integration.**

@@ -29,5 +29,15 @@ namespace TMS.WebApi.Models
         /// LibreOffice process timeout (in milliseconds)
         /// </summary>
         public int LibreOfficeTimeout { get; set; } = 30000;
+
+        /// <summary>
+        /// Shared storage path for generated documents (production-safe)
+        /// </summary>
+        public string? SharedStoragePath { get; set; }
+
+        /// <summary>
+        /// Temporary upload path for file processing
+        /// </summary>
+        public string? TempUploadPath { get; set; }
     }
 }

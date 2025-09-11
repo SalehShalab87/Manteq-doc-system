@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.CustomProperties;
 using TMS.WebApi.Models;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using CmsTemplate = CMS.WebApi.Models.Template;
 using CmsDocument = CMS.WebApi.Models.Document;
 
@@ -25,19 +26,27 @@ namespace TMS.WebApi.Services
         private readonly IDocumentService _cmsDocumentService;
         private readonly ICmsTemplateService _cmsTemplateService;
         private readonly ILogger<TemplateService> _logger;
+        private readonly TmsSettings _tmsSettings;
         private readonly string _tempUploadPath;
 
         public TemplateService(
             IDocumentService cmsDocumentService,
             ICmsTemplateService cmsTemplateService,
-            ILogger<TemplateService> logger)
+            ILogger<TemplateService> logger,
+            IOptions<TmsSettings> tmsSettings)
         {
             _cmsDocumentService = cmsDocumentService;
             _cmsTemplateService = cmsTemplateService;
             _logger = logger;
             
             // Create temp upload directory
-            _tempUploadPath = Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
+            _tmsSettings = tmsSettings.Value;
+            
+            // Use shared temp upload path from configuration, fallback to current directory
+            var tempPath = _tmsSettings.TempUploadPath ?? 
+                          Path.Combine(Directory.GetCurrentDirectory(), "TempUploads");
+            _tempUploadPath = tempPath;
+            
             if (!Directory.Exists(_tempUploadPath))
             {
                 Directory.CreateDirectory(_tempUploadPath);

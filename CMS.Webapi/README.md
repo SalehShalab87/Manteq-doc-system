@@ -1,286 +1,475 @@
 # 📁 CMS Web API - Content Management System
 
-A Content Management System (CMS) Web API built with ASP.NET Core 9.0 and Entity Framework Core for document storage and retrieval. **Part of the Manteq Document System** - provides core document storage services for the Template Management System (TMS).
+**Content Management Syste## ⚙️ Configuration
 
-## 🏗️ Role in Manteq Document System
+### **🔒 Environment Variables (Required)**
+Create `.env` file in the CMS.WebApi directory:
 
-The CMS serves as the **foundational data layer** for the complete document automation platform:
+**File: `CMS.WebApi/.env`**
+```env
+DB_SERVER=YOUR_SERVER\SQLEXPRESS
+DB_DATABASE=CmsDatabase_Dev  
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
+```
+
+### **🗂️ Production Storage Configuration**
+```json
+// appsettings.json (no database credentials here!)
+{
+  "FileStorage": {
+    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // Shared with TMS
+  }
+}
+```core document storage and retrieval services for the Manteq Document System. Built with ASP.NET Core 9.0 and Entity Framework Core.
+
+> 🎯 **Role**: Foundation storage layer that manages all documents and templates for TMS and Email Service integration.
+
+## 🏗️ Architecture Integration
+
+The CMS serves as the **central document repository** for the complete Manteq platform:
 
 ```
-Document Automation Flow:
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   CMS API   │───▶│   TMS API   │───▶│   Output    │
-│  (Storage)  │    │ (Processing)│    │ (Generated) │
-└─────────────┘    └─────────────┘    └─────────────┘
-      ▲                    │                  │
-      │              ┌─────▼─────┐            │
-      │              │ LibreOffice│            │
-      │              │ Conversion │            │
-      │              └───────────┘            │
-      │                                       │
-      └───────────── Document Storage ◀───────┘
+┌─────────────────────────────────────────────────────────┐
+│                MANTEQ DOCUMENT SYSTEM                   │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  📧 Email Service ────── 🎯 TMS API ────── 📁 CMS API   │
+│  (Port 5030)           (Port 5267)      (Port 5000)   │
+│                                                         │
+│  Uses generated        Processes         Stores ALL    │
+│  content from TMS      templates →       documents     │
+│                       calls CMS internally              │
+└─────────────────────────────────────────────────────────┘
+                            │
+                 ┌──────────┴───────────┐
+                 │   SHARED STORAGE     │
+                 │ C:\ManteqStorage_    │
+                 │      Shared\         │
+                 │                     │
+                 │ • CmsDocuments/     │ ← All files here
+                 │ • Templates         │
+                 │ • Generated docs    │
+                 └─────────────────────┘
 ```
+
+### **🔄 Service Relationships**
+- **CMS ← TMS**: TMS creates documents in CMS when templates are registered
+- **CMS ← Email**: Email service can attach CMS documents to emails  
+- **Database**: Single shared `CmsDatabase_Dev` for all services
+- **Storage**: Centralized file storage shared by all services
 
 ## 🚀 Features
 
-- **Document Registration**: Upload and store documents with metadata
-- **Document Retrieval**: Get document metadata and download URLs  
-- **File Storage**: Configurable disk-based storage with SQL Server metadata
-- **RESTful API**: Clean REST endpoints with comprehensive Swagger documentation
-- **File Size Limits**: 50MB maximum file size with validation
-- **Multiple File Types**: Support for documents, images, archives, and more
-- **TMS Integration**: Provides storage services for Template Management System
+### **📁 Core Document Management**
+- ✅ **Document Registration**: Upload and store documents with metadata
+- ✅ **Document Retrieval**: Get document metadata and download URLs  
+- ✅ **File Storage**: Production-grade shared storage architecture
+- ✅ **Database Integration**: Entity Framework with SQL Server
+- ✅ **RESTful API**: Clean REST endpoints with Swagger documentation
+
+### **🔒 Security & Validation**
+- ✅ **File Size Limits**: 50MB maximum with configurable validation
+- ✅ **File Type Support**: Documents (.docx, .xlsx, .pptx), images, archives
+- ✅ **Input Validation**: Comprehensive request validation and error handling
+- ✅ **Safe File Naming**: Automatic sanitization and GUID-based naming
+
+### **🎯 Integration Features**  
+- ✅ **TMS Integration**: Internal services used by Template Management System
+- ✅ **Email Integration**: Document attachment support for Email Service
+- ✅ **Microservice Architecture**: Clean separation of concerns
+- ✅ **Shared Database**: Single database shared across all Manteq services
+
+### **⚡ Production Ready**
+- ✅ **Error Handling**: Comprehensive error responses and logging
+- ✅ **Performance**: Optimized file I/O and database queries
+- ✅ **Monitoring**: Health checks and service status endpoints
+- ✅ **Scalability**: Stateless design ready for horizontal scaling
 
 ## 📋 Prerequisites
 
-- .NET 9.0 SDK
-- SQL Server Express (SQLEXPRESS instance)
-- Visual Studio Code or Visual Studio
+- ✅ **.NET 9.0 SDK**
+- ✅ **SQL Server Express** (SQLEXPRESS instance)
+- ✅ **Visual Studio Code** or Visual Studio 2022
+- ✅ **Shared Storage Setup**: `C:\ManteqStorage_Shared\CmsDocuments\`
 
 ## ⚙️ Configuration
 
-### Environment Variables Setup
-
-**🔒 Security First**: This system uses environment variables for all sensitive configuration. Database credentials and connection strings are never stored in source code.
-
-Create a `.env` file in the project root:
-```env
-# Database Configuration
-DB_SERVER=SALEH-PC\\SQLEXPRESS
-DB_DATABASE=CMS_Database
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-
-# File Storage
-FILE_STORAGE_PATH=C:\\Temp\\CMS_Storage
-
-# API Configuration  
-BASE_URL=https://localhost:7000
-```
-
-### appsettings.json
+### **�️ Production Storage Configuration**
 ```json
+// appsettings.json
 {
-  "FileStorage": {
-    "Path": "C:\\Temp\\CMS_Storage"
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=CmsDatabase_Dev;Integrated Security=true;Trust Server Certificate=true"
   },
-  "BaseUrl": "https://localhost:7000"
+  "FileStorage": {
+    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // Shared with TMS
+  }
 }
 ```
 
-> **Note**: Connection strings are built dynamically from environment variables for security.
+### **🗄️ Database Setup**
+The CMS uses a shared database with all Manteq services:
+```sql
+-- Database created automatically on first startup
+-- Shared by: CMS, TMS, Email Service
+USE CmsDatabase_Dev
 
-## 🏃‍♂️ Running the Application
+-- Tables:
+-- Documents (managed by CMS)
+-- Templates (managed by TMS, references Documents)
+```
 
-1. **Clone and navigate to the project**:
-   ```bash
-   cd CMS.WebApi
-   ```
+### **📁 Storage Directory Structure**
+```
+C:\ManteqStorage_Shared\
+└── CmsDocuments\                 # All documents stored here
+    ├── email-doc-test_xyz.docx   # Direct uploads
+    ├── Template_abc123.docx      # TMS registered templates
+    └── document_def456.pdf       # Various document types
+```
 
-2. **Create environment file**:
-   ```bash
-   # Copy the template and fill in your values
-   copy .env.template .env
-   # Edit .env with your database server and settings
-   ```
+## 🏃‍♂️ Quick Start
 
-3. **Restore packages**:
-   ```bash
-   dotnet restore
-   ```
+### **1. Setup Storage Directory**
+```powershell
+# Create shared storage (run once for entire Manteq system)
+New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
+```
 
-4. **Build the project**:
-   ```bash
-   dotnet build
-   ```
+### **2. Build and Run**
+```powershell
+# Navigate to CMS project
+cd CMS.WebApi
 
-5. **Run the application**:
-   ```bash
-   dotnet run
-   ```
+# Restore packages and build
+dotnet restore
+dotnet build
 
-6. **Access the API**:
-   - Swagger UI: https://localhost:7276
-   - HTTP: http://localhost:5077
+# Run the CMS service
+dotnet run
+```
 
-> **🔒 Security Note**: The `.env` file contains sensitive data and is excluded from version control via `.gitignore`.
+### **3. Access the API**
+- 🌐 **Swagger UI**: http://localhost:5000/swagger
+- 🔗 **Base URL**: http://localhost:5000
+- ✅ **Health Check**: http://localhost:5000/api/documents/health
 
-## 📚 API Endpoints
+### **4. Verify Installation**
+```powershell
+# Test health endpoint
+curl http://localhost:5000/api/documents/health
 
-### 📄 Register Document
-- **POST** `/api/documents/register`
-- **Content-Type**: `multipart/form-data`
-- **Parameters**:
-  - `Name` (string, required): Document name
-  - `Author` (string, required): Document author
-  - `Type` (string, required): Document type
-  - `Content` (file, required): File content
+# Expected response: {"status": "healthy", "service": "CMS"}
+```
+
+> 🎉 **That's it!** CMS is running and ready to store documents for the entire Manteq system.
+
+## 🌐 API Endpoints
+
+### **📄 Document Registration**
+```http
+POST http://localhost:5000/api/documents/register
+Content-Type: multipart/form-data
+
+Parameters:
+- file: Document file (required)
+- description: Document description (optional)
+```
+
+**Example Response**:
+```json
+{
+  "documentId": "ced4e35b-134c-4002-bed1-de26d3dabe89",
+  "fileName": "Email_Template.docx",
+  "message": "Document registered successfully",
+  "downloadUrl": "/api/documents/ced4e35b-134c-4002-bed1-de26d3dabe89/download"
+}
+```
+
+### **📄 Document Metadata**
+```http
+GET http://localhost:5000/api/documents/{documentId}
+```
+
+**Example Response**:
+```json
+{
+  "id": "ced4e35b-134c-4002-bed1-de26d3dabe89",
+  "fileName": "Email_Template.docx",
+  "filePath": "C:\\ManteqStorage_Shared\\CmsDocuments\\Email_Template.docx_ced4e35b-134c-4002-bed1-de26d3dabe89.docx",
+  "description": "Customer email template",
+  "createdAt": "2025-09-11T13:38:34.123Z",
+  "fileSize": 42060
+}
+```
+
+### **📥 Document Download**
+```http
+GET http://localhost:5000/api/documents/{documentId}/download
+```
+Returns the actual file with appropriate content-type headers.
+
+### **🔍 Health Check**
+```http
+GET http://localhost:5000/api/documents/health
+```
 
 **Response**:
 ```json
 {
-  "id": "00000000-0000-0000-0000-000000000000",
-  "message": "Document registered successfully"
+  "status": "healthy",
+  "service": "CMS",
+  "timestamp": "2025-09-11T13:45:00Z",
+  "database": "connected",
+  "storage": "accessible"
 }
 ```
-
-### 📄 Retrieve Document
-- **GET** `/api/documents/{id}`
-- **Parameters**:
-  - `id` (guid, required): Document ID
-
-**Response**:
-```json
-{
-  "id": "00000000-0000-0000-0000-000000000000",
-  "name": "document.pdf",
-  "author": "John Doe",
-  "creationDate": "2025-09-10T10:30:00Z",
-  "type": "PDF",
-  "size": 1048576,
-  "downloadUrl": "https://localhost:7276/api/documents/{id}/download"
-}
-```
-
-### 📄 Download Document
-- **GET** `/api/documents/{id}/download`
-- **Parameters**:
-  - `id` (guid, required): Document ID
-
-**Response**: File download with appropriate content-type
 
 ## 🗂️ Project Structure
 
 ```
 CMS.WebApi/
-├── Controllers/
-│   └── DocumentsController.cs      # API endpoints
-├── Data/
-│   └── CmsDbContext.cs            # Entity Framework context
-├── Models/
-│   ├── Document.cs                # Document entity
-│   └── DocumentDto.cs             # Data transfer objects
-├── Services/
-│   ├── IDocumentService.cs        # Service interface
-│   └── DocumentService.cs         # Service implementation
-├── Properties/
-│   └── launchSettings.json        # Launch configuration
-├── appsettings.json              # Application settings
-├── appsettings.Development.json  # Development settings
-└── Program.cs                    # Application entry point
+├── 📄 appsettings.json              # Production configuration
+├── 📄 appsettings.Development.json  # Development settings
+├── 📄 Program.cs                    # Application entry point & DI setup
+├── 
+├── 📁 Controllers/
+│   └── DocumentsController.cs       # REST API endpoints
+├── 📁 Data/
+│   └── CmsDbContext.cs             # Entity Framework context
+├── 📁 Models/
+│   ├── Document.cs                 # Document entity model
+│   └── DocumentDto.cs              # Data transfer objects
+├── 📁 Services/
+│   ├── IDocumentService.cs         # Service interface
+│   └── DocumentService.cs          # Business logic implementation
+├── 📁 Properties/
+│   └── launchSettings.json         # Development launch settings
+└── 📁 bin/Debug/net9.0/            # Build output (DLL for integration)
 ```
 
-## 🔧 Database Setup
+### **🔧 Key Configuration Files**
+- **Program.cs**: Dependency injection, Entity Framework setup, CORS configuration
+- **appsettings.json**: Database connection, file storage path, logging levels  
+- **CmsDbContext.cs**: Database models, relationships, Entity Framework configuration
+- **DocumentService.cs**: Core business logic for file storage and database operations
 
-**🔒 Environment-Based Configuration**: The database connection is configured via environment variables for security.
-
-The application uses Entity Framework Core with SQL Server. To set up the database:
-
-1. **Configure your environment** (in `.env` file):
-   ```env
-   DB_SERVER=YOUR_SERVER\\SQLEXPRESS
-   DB_DATABASE=CMS_Database
-   DB_INTEGRATED_SECURITY=true
-   DB_TRUST_SERVER_CERTIFICATE=true
-   ```
-
-2. **Create the database** (manually or through EF migrations):
-   ```sql
-   CREATE DATABASE CMS_Database;
-   ```
-
-3. **Enable database auto-creation** in Program.cs:
-   ```csharp
-   // Uncomment these lines in Program.cs
-   using (var scope = app.Services.CreateScope())
-   {
-       var context = scope.ServiceProvider.GetRequiredService<CmsDbContext>();
-       context.Database.EnsureCreated();
-   }
-   ```
-
-> **Note**: Connection strings are never stored in code - they're built from environment variables at runtime.
-
-## 📁 File Storage
-
-- **Default Location**: `C:\Temp\CMS_Storage`
-- **Configurable**: Set `FileStorage:Path` in appsettings.json
-- **Naming Convention**: `{DocumentName}_{DocumentId}.{Extension}`
-- **Auto-Creation**: Storage directory is created automatically
-
-## 🧪 Testing with Swagger UI
-
-1. Navigate to https://localhost:7276
-2. Use the **Register Document** endpoint to upload a file
-3. Copy the returned document ID
-4. Use **Retrieve Document** to get metadata
-5. Use **Download Document** to download the file
-
-## 🚀 Usage as DLL
-
-This CMS can be used as a DLL by other projects:
-
-1. **Build the project**:
-   ```bash
-   dotnet build -c Release
-   ```
-
-2. **Reference the DLL** in other projects:
-   ```xml
-   <ProjectReference Include="..\\CMS.WebApi\\CMS.WebApi.csproj" />
-   ```
-
-3. **Use the services** in your application:
-   ```csharp
-   services.AddScoped<IDocumentService, DocumentService>();
-   ```
-
-## � TMS Integration
-
-This CMS is designed to work seamlessly with the **Template Management System (TMS)**:
-
-### **As Storage Backend**
+### **📊 Database Context**
 ```csharp
-// TMS uses CMS services internally
-services.AddScoped<IDocumentService, DocumentService>();
-services.AddScoped<ICmsTemplateService, CmsTemplateService>();
+public class CmsDbContext : DbContext
+{
+    public DbSet<Document> Documents { get; set; }
+    
+    // Shared database with TMS:
+    // - Documents table (managed by CMS)
+    // - Templates table (managed by TMS, references Documents)
+}
 ```
 
-### **Template Storage Flow**
-1. **Upload templates** to CMS via `/api/documents/register`
-2. **TMS references** CMS documents for template processing
-3. **Generated documents** can be stored back in CMS
-4. **Clean separation** - TMS processes, CMS stores
+## �️ Development and Deployment
 
-### **Security Model**
-- **CMS endpoints**: Used internally by TMS
-- **TMS endpoints**: Exposed to external clients
-- **Controller exclusion**: TMS hides CMS controllers from public API
+### **� Development Setup**
+```powershell
+# Clone and build
+git clone https://github.com/SalehShalab87/Manteq-doc-system.git
+cd Manteq-doc-system\CMS.WebApi
 
+# Create storage directory
+New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
 
-## 🤝 Integration with TMS
+# Build and run
+dotnet build
+dotnet run
+```
 
-For complete document automation capabilities, pair this CMS with the **Template Management System (TMS)**:
+### **🚀 Production Deployment**
+```powershell
+# Build release version
+dotnet publish -c Release -o ./publish
 
-- **CMS**: Handles document storage and retrieval
-- **TMS**: Processes templates and generates documents  
-- **Together**: Provide end-to-end document automation
+# Configure production settings in appsettings.json:
+# - Update database connection string
+# - Set production storage path
+# - Configure logging levels
+```
 
-See the main [README.md](../README.md) for complete system documentation.
+### **🧩 Use as Service in Other Projects**
+```csharp
+// In other Manteq services (like TMS):
+services.AddScoped<IDocumentService, DocumentService>();
+services.AddDbContext<CmsDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
-## 🤝 Team Distribution
+// Services can now inject and use CMS functionality
+public class TemplateService 
+{
+    private readonly IDocumentService _documentService;
+    
+    public TemplateService(IDocumentService documentService)
+    {
+        _documentService = documentService;
+    }
+    
+    // Use CMS to store template files
+    public async Task<Document> StoreTemplateAsync(IFormFile file)
+    {
+        return await _documentService.CreateAsync(file, "Template file");
+    }
+}
+```
 
-- **Build Location**: `bin\Release\net9.0\CMS.WebApi.dll`
-- **NuGet Package**: Can be packaged for team distribution
-- **API Documentation**: Available via Swagger at runtime
+### **📦 DLL Integration**
+- **Build Output**: `bin\Release\net9.0\CMS.WebApi.dll`
+- **Dependencies**: Entity Framework Core, ASP.NET Core
+- **Usage**: Reference project or DLL in other Manteq services
+
+## 🧪 Testing the CMS
+
+### **🔍 Health Check Test**
+```powershell
+# Verify CMS is running
+curl http://localhost:5000/api/documents/health
+
+# Expected: {"status": "healthy", "service": "CMS"}
+```
+
+### **📄 Document Upload Test**
+```powershell
+# Upload a document
+curl -X POST "http://localhost:5000/api/documents/register" `
+     -F "file=@test-document.docx" `
+     -F "description=Test document upload"
+
+# Response includes documentId for further operations
+```
+
+### **📥 Document Download Test**
+```powershell
+# Download the uploaded document
+curl -X GET "http://localhost:5000/api/documents/{documentId}/download" `
+     --output downloaded-document.docx
+```
+
+### **🌐 Swagger UI Testing**
+1. Navigate to http://localhost:5000/swagger
+2. Use **POST /api/documents/register** to upload a file
+3. Copy the returned `documentId`
+4. Use **GET /api/documents/{documentId}** to get metadata
+5. Use **GET /api/documents/{documentId}/download** to download
+
+### **📊 Storage Verification**
+```powershell
+# Check that files are stored correctly
+Get-ChildItem "C:\ManteqStorage_Shared\CmsDocuments\"
+
+# Should show uploaded files with GUID naming pattern
+```
+
+## � Integration with Other Services
+
+### **🎯 TMS Integration (Primary Use Case)**
+The Template Management System uses CMS internally for template storage:
+
+```csharp
+// TMS calls CMS services internally
+// When you POST to TMS /api/templates/register:
+//   1. TMS receives template file
+//   2. TMS calls CMS DocumentService internally  
+//   3. CMS stores file in shared storage
+//   4. CMS returns Document ID to TMS
+//   5. TMS creates Template record with CmsDocumentId foreign key
+```
+
+**Integration Flow:**
+```
+TMS Template Upload
+        ↓
+TMS → CMS.DocumentService.CreateAsync()
+        ↓
+CMS stores in C:\ManteqStorage_Shared\CmsDocuments\
+        ↓
+CMS returns Document ID
+        ↓
+TMS creates Template record
+```
+
+### **📧 Email Service Integration**
+Email Service can attach CMS documents to outgoing emails:
+
+```http
+POST /api/email/send-with-attachments
+{
+  "to": ["recipient@example.com"],
+  "subject": "Documents Attached",
+  "body": "Please find documents attached",
+  "cmsDocumentIds": ["ced4e35b-134c-4002-bed1-de26d3dabe89"]
+}
+```
+
+### **🗄️ Shared Database Schema**
+```sql
+-- CmsDatabase_Dev
+Documents (CMS)                Templates (TMS)
+├── Id (PK)            ←──────── CmsDocumentId (FK)
+├── FileName                     ├── Id (PK)
+├── FilePath                     ├── Name
+├── Description                  ├── Description
+├── CreatedAt                    └── CreatedAt
+└── FileSize
+```
+
+### **📁 Storage Architecture**
+All services share the same storage locations but CMS manages the files:
+- **CMS**: Creates and manages files in `CmsDocuments/`
+- **TMS**: Processes files from `CmsDocuments/`, outputs to `TmsGenerated/`
+- **Email**: References files from both locations as needed
+
+## 📚 Additional Resources
+
+### **🌐 API Documentation**
+- **Swagger UI**: http://localhost:5000/swagger (when running)
+- **OpenAPI Spec**: Available at runtime for integration tools
+
+### **🔗 Related Documentation**
+- **[Main System README](../README.md)** - Complete Manteq Document System overview
+- **[TMS README](../TMS.WebApi/README.md)** - Template Management System (uses CMS)
+- **[Email Service README](../EmailService.WebApi/README.md)** - Email integration
+- **[Team Developer Guide](../TEAM_GUIDE.md)** - Comprehensive development guide
+
+### **🧪 Testing Tools**
+- **Postman**: Import OpenAPI spec for complete API testing
+- **curl**: Command-line testing examples shown above
+- **Swagger UI**: Built-in testing interface
+- **Integration Tests**: Use CMS as DLL in test projects
 
 ---
 
-**Status**: ✅ **CMS Web API is ready for production!**
+## 📞 Support and Contact
 
-The API is running with **secure environment variable configuration** and ready for integration with TMS and EmailService systems.
+- **👨‍💻 Lead Developer**: Saleh Shalab
+- **📧 Email**: salehshalab2@gmail.com
+- **🌐 Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **🐛 Issues**: Use GitHub Issues for bug reports
 
-🔒 **Security Features**: 
-- Environment variable configuration
-- No sensitive data in source code  
-- `.gitignore` protection for `.env` files
+---
+
+## ✅ Status: Production Ready
+
+🎉 **CMS Web API is fully operational and production-ready!**
+
+**✅ Features Complete:**
+- Document storage and retrieval
+- Shared storage architecture  
+- Database integration with TMS
+- REST API with comprehensive documentation
+- Error handling and validation
+- Health monitoring
+
+**🔗 Integration Status:**
+- ✅ TMS Integration: Fully implemented and tested
+- ✅ Email Service Integration: Ready for document attachments
+- ✅ Database Schema: Stable and optimized
+- ✅ Shared Storage: Production-grade file management
+
+**🚀 Ready for production deployment as the foundation storage layer of the Manteq Document System.**

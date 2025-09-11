@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Options;
 
 namespace TMS.WebApi.Services
 {
@@ -19,29 +20,52 @@ namespace TMS.WebApi.Services
         private readonly IDocumentGenerationService _documentGenerationService;
         private readonly IDocumentService _cmsDocumentService;
         private readonly ILogger<DocumentEmbeddingService> _logger;
+        private readonly TmsSettings _tmsSettings;
         private readonly string _outputDirectory;
+        private readonly string _tempDirectory;
         private readonly Dictionary<Guid, GeneratedDocument> _generatedDocuments;
 
         public DocumentEmbeddingService(
             ITemplateService templateService,
             IDocumentGenerationService documentGenerationService,
             IDocumentService cmsDocumentService,
-            ILogger<DocumentEmbeddingService> logger)
+            ILogger<DocumentEmbeddingService> logger,
+            IOptions<TmsSettings> tmsSettings)
         {
             _templateService = templateService;
             _documentGenerationService = documentGenerationService;
             _cmsDocumentService = cmsDocumentService;
             _logger = logger;
+            _tmsSettings = tmsSettings.Value;
             
-            // Create output directory for generated documents
-            _outputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedDocuments");
+            // Use shared storage path from configuration, fallback to current directory
+            var sharedStoragePath = _tmsSettings.SharedStoragePath ?? 
+                                  Path.Combine(Directory.GetCurrentDirectory(), "GeneratedDocuments");
+            _outputDirectory = sharedStoragePath;
+            
+            // Use shared temp path from configuration, fallback to current directory
+            var tempPath = _tmsSettings.TempUploadPath ?? 
+                          Path.Combine(Directory.GetCurrentDirectory(), "TempEmbedding");
+            _tempDirectory = tempPath;
+            
+            // Ensure directories exist
             if (!Directory.Exists(_outputDirectory))
             {
                 Directory.CreateDirectory(_outputDirectory);
+                _logger.LogInformation("Created shared output directory: {OutputDirectory}", _outputDirectory);
+            }
+            
+            if (!Directory.Exists(_tempDirectory))
+            {
+                Directory.CreateDirectory(_tempDirectory);
+                _logger.LogInformation("Created shared temp directory: {TempDirectory}", _tempDirectory);
             }
 
             // In-memory tracking of generated documents (for temporary storage)
             _generatedDocuments = new Dictionary<Guid, GeneratedDocument>();
+            
+            _logger.LogInformation("📁 DocumentEmbeddingService initialized with shared storage: Output={OutputDirectory}, Temp={TempDirectory}", 
+                _outputDirectory, _tempDirectory);
         }
 
         public async Task<DocumentEmbeddingResponse> GenerateDocumentWithEmbeddingAsync(DocumentEmbeddingRequest request)
@@ -116,7 +140,7 @@ namespace TMS.WebApi.Services
                         FileName = Path.GetFileName(finalPath),
                         FilePath = finalPath,
                         FileSizeBytes = fileInfo.Length,
-                        ExpiresAt = DateTime.UtcNow.AddHours(24), // 24 hour expiration
+                        ExpiresAt = DateTime.UtcNow.AddHours(_tmsSettings.DocumentRetentionHours), // Use TMS settings
                         ExportFormat = request.ExportFormat,
                         SourceTemplateId = request.MainTemplateId,
                         GeneratedBy = request.GeneratedBy
@@ -163,7 +187,7 @@ namespace TMS.WebApi.Services
         {
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var workingFileName = $"working_main_{timestamp}_{generationId:N}.docx";
-            var workingPath = Path.Combine(_outputDirectory, workingFileName);
+            var workingPath = Path.Combine(_tempDirectory, workingFileName);
 
             // Get the main template file from CMS
             var mainTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(mainTemplate.CmsDocumentId);
@@ -233,7 +257,7 @@ namespace TMS.WebApi.Services
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var random = Guid.NewGuid().ToString("N")[..8];
             var tempEmbedFileName = $"embed_temp_{timestamp}_{random}.docx";
-            var tempEmbedPath = Path.Combine(_outputDirectory, tempEmbedFileName);
+            var tempEmbedPath = Path.Combine(_tempDirectory, tempEmbedFileName);
 
             // Get the embed template file from CMS and copy
             var embedTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(embedTemplate.CmsDocumentId);
@@ -346,19 +370,32 @@ namespace TMS.WebApi.Services
             switch (exportFormat)
             {
                 case ExportFormat.Original:
-                default:
-                    // Simply copy to final location with proper name
-                    File.Copy(workingDocPath, outputPath, true);
+                case ExportFormat.Word:
+                    // Simply copy to final location with proper name for Word/Original format
+                    await Task.Run(() => File.Copy(workingDocPath, outputPath, true));
                     return outputPath;
                     
-                // For other formats, we can use the DocumentGenerationService conversion methods
                 case ExportFormat.Html:
                 case ExportFormat.EmailHtml:
                 case ExportFormat.Pdf:
-                case ExportFormat.Word:
-                    // This would require access to the DocumentGenerationService conversion methods
-                    // For now, fall back to original format
-                    File.Copy(workingDocPath, outputPath, true);
+                    // Use the DocumentGenerationService for proper format conversion
+                    try
+                    {
+                        var convertedPath = await _documentGenerationService.ConvertDocumentFormatAsync(workingDocPath, outputPath, exportFormat);
+                        _logger.LogInformation("✅ Successfully converted embedded document to {ExportFormat}: {OutputPath}", exportFormat, convertedPath);
+                        return convertedPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "❌ Failed to convert embedded document to {ExportFormat}, falling back to Word format", exportFormat);
+                        // Fallback to Word format if conversion fails
+                        var fallbackPath = Path.ChangeExtension(outputPath, ".docx");
+                        await Task.Run(() => File.Copy(workingDocPath, fallbackPath, true));
+                        return fallbackPath;
+                    }
+                    
+                default:
+                    await Task.Run(() => File.Copy(workingDocPath, outputPath, true));
                     return outputPath;
             }
         }
@@ -691,7 +728,7 @@ namespace TMS.WebApi.Services
                 {
                     if (File.Exists(document.FilePath))
                     {
-                        File.Delete(document.FilePath);
+                        await Task.Run(() => File.Delete(document.FilePath));
                         _logger.LogDebug("Deleted expired file: {FilePath}", document.FilePath);
                     }
                     

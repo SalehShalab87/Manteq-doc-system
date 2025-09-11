@@ -247,8 +247,9 @@ namespace EmailService.WebApi.Services
 
         private static bool ValidateEmailAddresses(IEnumerable<string> emailAddresses)
         {
-            var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
-            return emailAddresses.All(email => emailRegex.IsMatch(email));
+            // Use a more comprehensive email validation regex that allows dots, hyphens, and underscores
+            var emailRegex = new System.Text.RegularExpressions.Regex(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+            return emailAddresses.All(email => !string.IsNullOrWhiteSpace(email) && emailRegex.IsMatch(email.Trim()));
         }
 
         private static string GetMimeType(string fileName)

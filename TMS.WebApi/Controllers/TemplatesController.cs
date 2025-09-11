@@ -234,17 +234,31 @@ namespace TMS.WebApi.Controllers
                     var fileName = Path.GetFileName(filePath);
                     var contentType = GetContentType(filePath);
                     
-                    _logger.LogInformation("✅ Document downloaded successfully: {GenerationId}", generationId);
+                    _logger.LogInformation("✅ Regular document downloaded successfully: {GenerationId} - {FileName}", generationId, fileName);
                     return File(fileBytes, contentType, fileName);
                 }
                 catch (FileNotFoundException)
                 {
-                    // Fall back to document embedding service
-                    var fileBytes = await _documentEmbeddingService.DownloadGeneratedDocumentAsync(generationId);
-                    var fileName = $"GeneratedDocumentWithEmbeddings_{generationId:N}.docx"; // Default filename
+                    _logger.LogDebug("Regular document not found, trying embedded document service for: {GenerationId}", generationId);
                     
-                    _logger.LogInformation("✅ Document with embeddings downloaded successfully: {GenerationId}", generationId);
-                    return File(fileBytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName);
+                    // Try document embedding service
+                    try
+                    {
+                        var fileBytes = await _documentEmbeddingService.DownloadGeneratedDocumentAsync(generationId);
+                        
+                        // Try to get a better filename by checking if we have the document info
+                        // For now, use a default pattern
+                        var fileName = $"EmbeddedDocument_{generationId:N}[0..8].pdf";
+                        var contentType = "application/pdf"; // Default to PDF since most embeddings are PDF
+                        
+                        _logger.LogInformation("✅ Embedded document downloaded successfully: {GenerationId} - {FileName}", generationId, fileName);
+                        return File(fileBytes, contentType, fileName);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        _logger.LogWarning("Document not found in both services: {GenerationId}", generationId);
+                        throw; // Re-throw the exception preserving stack trace
+                    }
                 }
             }
             catch (FileNotFoundException ex)
@@ -370,10 +384,9 @@ namespace TMS.WebApi.Controllers
                 {
                     try
                     {
-                        var fileBytes = await _documentGenerationService.DownloadGeneratedDocumentAsync(result.GenerationId);
-                        var filePath = await _documentGenerationService.GetGeneratedDocumentPathAsync(result.GenerationId);
-                        var fileName = Path.GetFileName(filePath);
-                        var contentType = GetContentType(filePath);
+                        var fileBytes = await _documentEmbeddingService.DownloadGeneratedDocumentAsync(result.GenerationId);
+                        var fileName = result.FileName ?? $"EmbeddedDocument_{result.GenerationId:N}.pdf";
+                        var contentType = GetContentType(fileName);
                         
                         _logger.LogInformation("📥 Auto-downloading embedded document: {FileName} ({FileSize} KB)", 
                             fileName, fileBytes.Length / 1024);
