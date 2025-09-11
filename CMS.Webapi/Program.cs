@@ -24,7 +24,20 @@ var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDataba
 var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
 var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
 
-var connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};";
+// For local SQL Server Express, use named pipes for better reliability
+string connectionString;
+if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbServer.Contains(Environment.MachineName)))
+{
+    connectionString = $"Data Source=np:\\\\.\\pipe\\MSSQL$SQLEXPRESS\\sql\\query;Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+    Console.WriteLine($"🔧 Using named pipes connection for local SQLEXPRESS");
+}
+else
+{
+    connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+    Console.WriteLine($"🔧 Using TCP/IP connection for remote server");
+}
+
+Console.WriteLine($"📄 CMS Database: {dbDatabase}");
 
 // Add services to the container.
 builder.Services.AddControllers();
