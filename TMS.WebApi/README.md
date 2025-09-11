@@ -431,8 +431,8 @@ soffice --headless --convert-to pdf document.docx
 
 ## 📞 Support
 
-- **Author**: Saleh Manteq  
-- **Email**: saleh@manteq.com
+- **Author**: Saleh Shalab
+- **Email**: salehshalab2@gmail.com
 - **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
 
 **Status**: ✅ **Production Ready** - TMS provides comprehensive template management and document generation capabilities with professional-grade output quality.

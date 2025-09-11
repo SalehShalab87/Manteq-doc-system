@@ -39,18 +39,36 @@ Document Automation Flow:
 
 ## ⚙️ Configuration
 
+### Environment Variables Setup
+
+**🔒 Security First**: This system uses environment variables for all sensitive configuration. Database credentials and connection strings are never stored in source code.
+
+Create a `.env` file in the project root:
+```env
+# Database Configuration
+DB_SERVER=SALEH-PC\\SQLEXPRESS
+DB_DATABASE=CMS_Database
+DB_INTEGRATED_SECURITY=true
+DB_TRUST_SERVER_CERTIFICATE=true
+
+# File Storage
+FILE_STORAGE_PATH=C:\\Temp\\CMS_Storage
+
+# API Configuration  
+BASE_URL=https://localhost:7000
+```
+
 ### appsettings.json
 ```json
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=SALEH-PC\\SQLEXPRESS;Initial Catalog=master;Integrated Security=True;Trust Server Certificate=True;"
-  },
   "FileStorage": {
     "Path": "C:\\Temp\\CMS_Storage"
   },
   "BaseUrl": "https://localhost:7000"
 }
 ```
+
+> **Note**: Connection strings are built dynamically from environment variables for security.
 
 ## 🏃‍♂️ Running the Application
 
@@ -59,24 +77,33 @@ Document Automation Flow:
    cd CMS.WebApi
    ```
 
-2. **Restore packages**:
+2. **Create environment file**:
+   ```bash
+   # Copy the template and fill in your values
+   copy .env.template .env
+   # Edit .env with your database server and settings
+   ```
+
+3. **Restore packages**:
    ```bash
    dotnet restore
    ```
 
-3. **Build the project**:
+4. **Build the project**:
    ```bash
    dotnet build
    ```
 
-4. **Run the application**:
+5. **Run the application**:
    ```bash
    dotnet run
    ```
 
-5. **Access the API**:
+6. **Access the API**:
    - Swagger UI: https://localhost:7276
    - HTTP: http://localhost:5077
+
+> **🔒 Security Note**: The `.env` file contains sensitive data and is excluded from version control via `.gitignore`.
 
 ## 📚 API Endpoints
 
@@ -145,14 +172,24 @@ CMS.WebApi/
 
 ## 🔧 Database Setup
 
+**🔒 Environment-Based Configuration**: The database connection is configured via environment variables for security.
+
 The application uses Entity Framework Core with SQL Server. To set up the database:
 
-1. **Create the database** (manually or through EF migrations):
+1. **Configure your environment** (in `.env` file):
+   ```env
+   DB_SERVER=YOUR_SERVER\\SQLEXPRESS
+   DB_DATABASE=CMS_Database
+   DB_INTEGRATED_SECURITY=true
+   DB_TRUST_SERVER_CERTIFICATE=true
+   ```
+
+2. **Create the database** (manually or through EF migrations):
    ```sql
    CREATE DATABASE CMS_Database;
    ```
 
-2. **Enable database auto-creation** in Program.cs:
+3. **Enable database auto-creation** in Program.cs:
    ```csharp
    // Uncomment these lines in Program.cs
    using (var scope = app.Services.CreateScope())
@@ -161,6 +198,8 @@ The application uses Entity Framework Core with SQL Server. To set up the databa
        context.Database.EnsureCreated();
    }
    ```
+
+> **Note**: Connection strings are never stored in code - they're built from environment variables at runtime.
 
 ## 📁 File Storage
 
@@ -218,15 +257,6 @@ services.AddScoped<ICmsTemplateService, CmsTemplateService>();
 - **TMS endpoints**: Exposed to external clients
 - **Controller exclusion**: TMS hides CMS controllers from public API
 
-## �📝 Next Steps
-
-- [x] Set up database auto-creation
-- [x] Integration with Template Management System (TMS)
-- [x] Clean API separation and security
-- [ ] Add authentication/authorization
-- [ ] Implement document versioning
-- [ ] Add search and filtering capabilities
-- [ ] Create unit and integration tests
 
 ## 🤝 Integration with TMS
 
@@ -246,6 +276,11 @@ See the main [README.md](../README.md) for complete system documentation.
 
 ---
 
-**Status**: ✅ **CMS Web API is ready for testing!**
+**Status**: ✅ **CMS Web API is ready for production!**
 
-The API is running and ready for integration with TMS and EmailService systems.
+The API is running with **secure environment variable configuration** and ready for integration with TMS and EmailService systems.
+
+🔒 **Security Features**: 
+- Environment variable configuration
+- No sensitive data in source code  
+- `.gitignore` protection for `.env` files

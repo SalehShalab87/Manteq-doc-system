@@ -1,8 +1,9 @@
+using EmailService.WebApi.Services;
+using EmailService.WebApi.Models;
+using EmailService.WebApi.Infrastructure;
 using CMS.WebApi.Data;
 using CMS.WebApi.Services;
 using TMS.WebApi.Services;
-using TMS.WebApi.Infrastructure;
-using TMS.WebApi.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 
@@ -30,73 +31,78 @@ var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERV
 
 var connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};";
 
-// Configure TMS Settings
-builder.Services.Configure<TmsSettings>(builder.Configuration.GetSection("TMS"));
-
 // Add services to the container.
 
-// Configure JSON serialization to handle enums properly
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
-});
-
-// Add controllers - only from TMS.WebApi assembly (excludes CMS controllers)
+// Add controllers with JSON enum handling - ONLY EmailService controllers
 builder.Services.AddControllers(options =>
 {
-    // Add a custom filter to exclude CMS controllers
-    options.Conventions.Add(new ControllerExclusionConvention());
+    // Apply controller filtering to hide CMS/TMS endpoints
+    options.Conventions.Add(new ControllerExclusionConvention(typeof(Program).Assembly));
 })
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-// Configure Entity Framework for CMS
-builder.Services.AddDbContext<CmsDbContext>(options =>
-{
-    // Use connection string built from environment variables
-    options.UseSqlServer(connectionString);
-});
+// Add custom application model provider for additional filtering
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.ApplicationModels.IApplicationModelProvider, EmailServiceApplicationModelProvider>();
 
-// Register CMS Services (used internally by TMS - no CMS endpoints are exposed)
+// Configure Entity Framework for CMS (shared database)
+builder.Services.AddDbContext<CmsDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Register CMS Services (used internally by Email Service)
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
 
-// Register TMS Services (these power the exposed TMS API endpoints)
-builder.Services.AddScoped<ITemplateService, TemplateService>();
+// Register TMS Services (used internally by Email Service)
+builder.Services.AddScoped<ITemplateService, TMS.WebApi.Services.TemplateService>();
 builder.Services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
 builder.Services.AddScoped<IDocumentEmbeddingService, DocumentEmbeddingService>();
 
-// Configure Swagger/OpenAPI - only for TMS endpoints
+// Register Email Service integration services
+builder.Services.AddScoped<ICmsIntegrationService, CmsIntegrationService>();
+builder.Services.AddScoped<ITmsIntegrationService, TmsIntegrationService>();
+
+// Register Email Service main service
+builder.Services.AddScoped<IEmailSendingService, EmailSendingService>();
+
+// Configure Swagger/OpenAPI for Email Service endpoints ONLY
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "Template Management System (TMS) API",
+        Title = "Email Service API",
         Version = "v1",
-        Description = "A powerful Template Management System that uses CMS for data storage and provides document generation with multiple export formats. This API exposes only TMS endpoints - CMS services are used internally.",
+        Description = "A powerful Email Service that integrates with TMS (Template Management System) and CMS (Content Management System) for advanced email automation with template-based content generation and document attachments. This API exposes ONLY Email Service endpoints - TMS and CMS services are used internally.",
         Contact = new Microsoft.OpenApi.Models.OpenApiContact
         {
-            Name = "Saleh Manteq",
-            Email = "saleh@manteq.com"
+            Name = "Saleh Shalab",
+            Email = "salehshalab2@gmail.com"
         }
     });
 
-    // Include XML comments if available
+    // Include XML comments for better Swagger documentation
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
     {
         c.IncludeXmlComments(xmlPath);
     }
+
+    // Filter out non-EmailService controllers from Swagger documentation
+    c.DocInclusionPredicate((docName, apiDesc) =>
+    {
+        var controllerType = apiDesc.ActionDescriptor.RouteValues["controller"];
+        return controllerType?.StartsWith("Email") == true;
+    });
 });
 
 // Configure CORS if needed
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddDefaultPolicy(policy =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
@@ -112,14 +118,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TMS API v1");
-        c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Email Service API v1");
+        c.RoutePrefix = string.Empty; // Serve Swagger UI at root
     });
 }
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
+app.UseCors();
 
 app.UseAuthorization();
 
@@ -128,10 +134,10 @@ app.MapControllers();
 // Ensure database is created
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<CmsDbContext>();
     try
     {
-        context.Database.EnsureCreated();
+        var context = scope.ServiceProvider.GetRequiredService<CmsDbContext>();
+        await context.Database.EnsureCreatedAsync();
         app.Logger.LogInformation("Database initialized successfully");
     }
     catch (Exception ex)
@@ -140,14 +146,13 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.Logger.LogInformation("🚀 Template Management System (TMS) API is starting...");
+// Log startup information
+app.Logger.LogInformation("🚀 Email Service API is starting...");
 app.Logger.LogInformation("📋 Available endpoints:");
-app.Logger.LogInformation("   POST /api/templates/register - Register new template");
-app.Logger.LogInformation("   GET  /api/templates/{id} - Retrieve template");
-app.Logger.LogInformation("   GET  /api/templates/{id}/properties - Get template properties");
-app.Logger.LogInformation("   POST /api/templates/generate - Generate document from template");
-app.Logger.LogInformation("   POST /api/templates/generate-with-embeddings - Generate document with embeddings");
-app.Logger.LogInformation("   GET  /api/templates/download/{id} - Download generated document");
+app.Logger.LogInformation("     POST /api/email/send-with-template - Send email with TMS template");
+app.Logger.LogInformation("     POST /api/email/send-with-documents - Send email with CMS documents");
+app.Logger.LogInformation("     GET  /api/email/accounts - Get available email accounts");
+app.Logger.LogInformation("     GET  /api/email/health - Health check");
 app.Logger.LogInformation("🔧 Swagger UI available at: /");
 
 app.Run();

@@ -1,6 +1,6 @@
 # 📄 Manteq Document System
 
-A comprehensive document automation platform consisting of **Content Management System (CMS)** and **Template Management System (TMS)** built with ASP.NET Core 9.0.
+A comprehensive document automation platform consisting of **Content Management System (CMS)**, **Template Management System (TMS)**, and **Email Service** built with ASP.NET Core 9.0.
 
 ## 🏗️ System Architecture
 
@@ -10,11 +10,16 @@ Manteq Document System
 │   ├── Document storage & retrieval
 │   ├── File management services
 │   └── Database integration
-└── 📁 TMS.WebApi/              # Template Management System
-    ├── Template processing
-    ├── Document generation
-    ├── Multiple export formats
-    └── Auto-download functionality
+├── 📁 TMS.WebApi/              # Template Management System  
+│   ├── Template processing
+│   ├── Document generation
+│   ├── Multiple export formats
+│   └── Auto-download functionality
+└── 📁 EmailService.WebApi/     # Email Service
+    ├── TMS/CMS integration
+    ├── Template-based email content
+    ├── Document attachments
+    └── Multi-account SMTP support
 ```
 
 ## 🚀 Features Overview
@@ -35,6 +40,14 @@ Manteq Document System
 - ✅ LibreOffice integration for high-quality conversion
 - ✅ Email-friendly HTML with base64 embedded images
 - ✅ Configurable cleanup and retention
+
+### **Email Service**
+- ✅ TMS template-based email generation
+- ✅ CMS document attachments
+- ✅ Multi-account SMTP configuration
+- ✅ EmailHtml format integration (replaces body content)
+- ✅ Auto-cleanup of generated documents
+- ✅ Email validation and error handling
 
 ## 📋 Prerequisites
 
@@ -60,9 +73,14 @@ dotnet build ManteqDocumentSystem.sln
 cd TMS.WebApi
 dotnet build TMS.WebApi.sln
 
-# Option 3: Build individual projects
+# Option 3: Build Email Service with dependencies
+cd EmailService.WebApi  
+dotnet build EmailService.WebApi.sln
+
+# Option 4: Build individual projects
 cd CMS.WebApi && dotnet build
 cd TMS.WebApi && dotnet build
+cd EmailService.WebApi && dotnet build
 ```
 
 ### 3. **Run CMS API**
@@ -77,6 +95,13 @@ dotnet run
 cd TMS.WebApi
 dotnet run
 # Access: http://localhost:5267 (Swagger: http://localhost:5267)
+```
+
+### 5. **Run Email Service**
+```bash
+cd EmailService.WebApi
+dotnet run
+# Access: http://localhost:5030 (Swagger: http://localhost:5030)
 ```
 
 ## 🔗 API Endpoints
@@ -94,6 +119,12 @@ dotnet run
 - `POST /api/templates/generate-with-embeddings` - Advanced template composition
 - `GET /api/templates/download/{id}` - Download generated documents
 
+### **Email Service APIs**
+- `POST /api/email/send-with-template` - Send email with TMS template content
+- `POST /api/email/send-with-documents` - Send email with CMS document attachments
+- `GET /api/email/accounts` - Get configured email accounts
+- `GET /api/email/health` - Service health check
+
 ## 🎯 Key Capabilities
 
 ### **Document Generation**
@@ -109,6 +140,23 @@ Content-Type: application/json
   },
   "exportFormat": "EmailHtml",
   "generatedBy": "API User"
+}
+```
+
+### **Email Automation**
+```http
+POST /api/email/send-with-template
+Content-Type: application/json
+
+{
+  "toRecipients": ["customer@example.com"],
+  "subject": "Your Invoice Document",
+  "templateId": "your-template-id",
+  "propertyValues": {
+    "CustomerName": "John Doe", 
+    "InvoiceNumber": "INV-123456"
+  },
+  "exportFormat": "EmailHtml"
 }
 ```
 
@@ -144,7 +192,7 @@ Content-Type: application/json
 
 ```
 Manteq-doc-system/
-├── ManteqDocumentSystem.sln    # Main solution (CMS + TMS)
+├── ManteqDocumentSystem.sln    # Main solution (CMS + TMS + Email)
 ├── CMS.WebApi/                 # Content Management System
 │   ├── Controllers/
 │   ├── Data/
@@ -159,33 +207,45 @@ Manteq-doc-system/
 │   ├── Infrastructure/
 │   ├── GeneratedDocuments/     # Auto-cleanup directory
 │   └── README.md
+├── EmailService.WebApi/        # Email Service
+│   ├── EmailService.WebApi.sln # Email solution (Email + TMS + CMS)
+│   ├── Controllers/
+│   ├── Services/
+│   ├── Models/
+│   ├── Infrastructure/         # Controller filtering
+│   ├── .env.template          # SMTP configuration template
+│   └── README.md
 ├── .gitignore                  # Ignores generated files
+├── SYSTEM_OVERVIEW.md          # Complete system documentation
 └── README.md                   # This file
 ```
 
 ### **Solution Files**
-- **`ManteqDocumentSystem.sln`** - Complete system build (recommended for development)
+- **`ManteqDocumentSystem.sln`** - Complete system build (all services)
 - **`TMS.WebApi/TMS.WebApi.sln`** - TMS-focused build with CMS dependency
+- **`EmailService.WebApi/EmailService.WebApi.sln`** - Email Service with TMS+CMS dependencies
 
 ## 🧪 Testing
 
 ### **Swagger UI Access**
 - **CMS**: https://localhost:7276
 - **TMS**: http://localhost:5267
+- **Email Service**: http://localhost:5030
 
 ### **Sample Workflow**
 1. **Upload template** via CMS
 2. **Register template** in TMS
 3. **Generate document** with custom data
-4. **Auto-download** or manual download
+4. **Send via Email Service** or **Auto-download**
 
 ## 🚀 Deployment
 
 ### **Development**
 ```bash
-# Start both systems
+# Start all systems
 dotnet run --project CMS.WebApi
 dotnet run --project TMS.WebApi
+dotnet run --project EmailService.WebApi
 ```
 
 ### **Production**
@@ -193,6 +253,7 @@ dotnet run --project TMS.WebApi
 # Build for production
 dotnet publish CMS.WebApi -c Release
 dotnet publish TMS.WebApi -c Release
+dotnet publish EmailService.WebApi -c Release
 ```
 
 ## 📈 Performance Features
@@ -229,6 +290,6 @@ TMS uses CMS services internally for document storage while exposing only TMS-sp
 - **Email**: salehshalab2@gmail.com
 - **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
 
-**Status**: ✅ **Production Ready** - Both CMS and TMS are fully functional and tested.
+**Status**: ✅ **Production Ready** - CMS, TMS, and Email Service are fully functional and tested.
 
-The system provides a complete document automation solution with professional-grade template processing, multiple export formats, and seamless integration capabilities.
+The system provides a complete document automation solution with professional-grade template processing, multiple export formats, email automation, and seamless integration capabilities.

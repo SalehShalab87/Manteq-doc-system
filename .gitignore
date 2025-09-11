@@ -376,3 +376,11 @@ working_*.pptx
 *_html_*.gif
 *_html_*.png
 *_html_*.jpg
+
+# Environment files (contain sensitive SMTP credentials)
+.env
+**/.env
+EmailService.WebApi/.env
+
+# Local configuration files (contain sensitive setup info)
+LOCAL_CONFIG_SETUP.md
