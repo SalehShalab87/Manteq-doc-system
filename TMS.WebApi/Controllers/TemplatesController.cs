@@ -316,31 +316,6 @@ namespace TMS.WebApi.Controllers
             }
         }
 
-        /// <summary>
-        /// Cleanup Expired Documents
-        /// Administrative endpoint to manually trigger cleanup of expired generated documents.
-        /// </summary>
-        /// <returns>Cleanup result</returns>
-        [HttpPost("cleanup")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> CleanupExpiredDocuments()
-        {
-            try
-            {
-                var result = await _documentGenerationService.CleanupExpiredDocumentsAsync();
-                
-                _logger.LogInformation("Manual cleanup triggered, Success: {Success}", result);
-
-                return Ok(new { message = "Cleanup completed", success = result });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during manual cleanup");
-                return StatusCode(500, new { error = "Internal server error occurred during cleanup" });
-            }
-        }
-
         private static string GetContentType(string filePath)
         {
             var extension = Path.GetExtension(filePath).ToLowerInvariant();
