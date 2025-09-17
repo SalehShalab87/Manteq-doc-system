@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml.CustomProperties;
 using DocumentFormat.OpenXml;
 using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Options;
 
 namespace TMS.WebApi.Services
@@ -465,9 +466,8 @@ namespace TMS.WebApi.Services
 
         private int UpdateSimpleFields(OpenXmlElement container, Dictionary<string, string> propertyValues)
         {
-            var updatedCount = 0;
+            int updatedCount = 0;
             var simpleFields = container.Descendants<SimpleField>().ToList();
-            
             foreach (var field in simpleFields)
             {
                 var instruction = field.Instruction?.Value;
@@ -479,7 +479,7 @@ namespace TMS.WebApi.Services
                 string propertyName = match.Groups[1].Value.Trim();
                 if (propertyValues.TryGetValue(propertyName, out var newValue))
                 {
-                    var textElements = field.Elements<Text>().ToList();
+                    var textElements = field.Elements<DocumentFormat.OpenXml.Wordprocessing.Text>().ToList();
                     foreach (var textElement in textElements)
                     {
                         textElement.Text = newValue;
@@ -487,15 +487,98 @@ namespace TMS.WebApi.Services
                     updatedCount++;
                 }
             }
-            
             return updatedCount;
         }
 
         private int UpdateComplexFields(OpenXmlElement container, Dictionary<string, string> propertyValues)
         {
-            // Complex field handling implementation (similar to your original code)
-            // This is a simplified version - can be enhanced with your full logic
-            return 0;
+            int updatedCount = 0;
+            var runs = container.Descendants<DocumentFormat.OpenXml.Wordprocessing.Run>().ToList();
+            
+            for (int i = 0; i < runs.Count; i++)
+            {
+                // Look for field begin
+                var fieldBegin = runs[i].Elements<FieldChar>()
+                    .FirstOrDefault(fc => fc.FieldCharType?.Value == FieldCharValues.Begin);
+                if (fieldBegin == null) continue;
+
+                // Collect all instruction text until we find separate or end
+                var instructionText = new StringBuilder();
+                int instrStartIndex = i + 1;
+                int separateIndex = -1;
+                int endIndex = -1;
+
+                for (int j = instrStartIndex; j < runs.Count; j++)
+                {
+                    var fieldChar = runs[j].Elements<FieldChar>().FirstOrDefault();
+                    if (fieldChar?.FieldCharType?.Value == FieldCharValues.Separate)
+                    {
+                        separateIndex = j;
+                        break;
+                    }
+                    else if (fieldChar?.FieldCharType?.Value == FieldCharValues.End)
+                    {
+                        endIndex = j;
+                        break;
+                    }
+                    else
+                    {
+                        // Try to get instruction text from InnerText
+                        if (!string.IsNullOrEmpty(runs[j].InnerText))
+                        {
+                            instructionText.Append(runs[j].InnerText);
+                        }
+                    }
+                }
+
+                // Find the end if we only found separate
+                if (separateIndex != -1 && endIndex == -1)
+                {
+                    for (int j = separateIndex + 1; j < runs.Count; j++)
+                    {
+                        var fieldChar = runs[j].Elements<FieldChar>().FirstOrDefault();
+                        if (fieldChar?.FieldCharType?.Value == FieldCharValues.End)
+                        {
+                            endIndex = j;
+                            break;
+                        }
+                    }
+                }
+
+                if (endIndex == -1) continue; // Malformed field
+
+                string instruction = instructionText.ToString().Trim();
+                var match = System.Text.RegularExpressions.Regex.Match(instruction, @"\bDOCPROPERTY\s+(\S+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (!match.Success) continue;
+
+                string propertyName = match.Groups[1].Value.Trim();
+                if (propertyValues.TryGetValue(propertyName, out var newValue))
+                {
+                    // Update the result text (between separate and end, or between last instruction and end)
+                    int resultStartIndex = separateIndex != -1 ? separateIndex + 1 : instrStartIndex;
+                    bool isFirst = true;
+                    for (int k = resultStartIndex; k < endIndex; k++)
+                    {
+                        var textElements = runs[k].Elements<DocumentFormat.OpenXml.Wordprocessing.Text>().ToList();
+                        foreach (var textElement in textElements)
+                        {
+                            if (isFirst)
+                            {
+                                textElement.Text = newValue;
+                                isFirst = false;
+                            }
+                            else
+                            {
+                                textElement.Text = "";
+                            }
+                        }
+                    }
+                    updatedCount++;
+                }
+                // Move index to after the field end
+                i = endIndex;
+            }
+            return updatedCount;
         }
 
         private void ForceFieldUpdateOnOpen(WordprocessingDocument doc)
