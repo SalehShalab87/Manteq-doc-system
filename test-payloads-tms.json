@@ -3,7 +3,7 @@
     "description": "Generate document from email template",
     "endpoint": "POST http://localhost:5267/api/templates/generate",
     "payload": {
-      "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
+      "templateId": "E6913CB9-F0C3-42CA-89E4-05F9955E505B",
       "propertyValues": {
         "ICS_CustomerName": "Ahmed Al-Mansouri",
         "ICS_PolicyNumber": "POL-2025-001234",
