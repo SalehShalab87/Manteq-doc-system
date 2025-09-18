@@ -1,7 +1,47 @@
+
 using System.ComponentModel.DataAnnotations;
+
 
 namespace EmailService.WebApi.Models
 {
+    /// <summary>
+    /// Request to send email with TMS EmailHtml as body and another TMS export as attachment, each with its own property values
+    /// </summary>
+    public class SendEmailWithTmsHtmlAndAttachmentRequest
+    {
+        public string? FromAccount { get; set; }
+        [Required]
+        public List<string> ToRecipients { get; set; } = new();
+        public List<string> CcRecipients { get; set; } = new();
+        public List<string> BccRecipients { get; set; } = new();
+        [Required]
+        public string Subject { get; set; } = string.Empty;
+        /// <summary>
+        /// TMS template ID for the email body (EmailHtml)
+        /// </summary>
+        [Required]
+        public Guid BodyTemplateId { get; set; }
+        /// <summary>
+        /// Property values for the email body (EmailHtml)
+        /// </summary>
+        [Required]
+        public Dictionary<string, string> BodyPropertyValues { get; set; } = new();
+        /// <summary>
+        /// TMS template ID for the attachment (can be the same or different from body)
+        /// </summary>
+        [Required]
+        public Guid AttachmentTemplateId { get; set; }
+        /// <summary>
+        /// Property values for the attachment
+        /// </summary>
+        [Required]
+        public Dictionary<string, string> AttachmentPropertyValues { get; set; } = new();
+        /// <summary>
+        /// Export format for the attachment (not EmailHtml)
+        /// </summary>
+        [Required]
+        public TmsExportFormat AttachmentExportFormat { get; set; }
+    }
     public class EmailAccount
     {
         public string Name { get; set; } = string.Empty;
