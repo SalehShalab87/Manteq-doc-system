@@ -16,6 +16,7 @@ namespace TMS.WebApi.Services
         Task<byte[]> DownloadGeneratedDocumentAsync(Guid generationId);
         Task<string> GetGeneratedDocumentPathAsync(Guid generationId);
         Task<bool> CleanupExpiredDocumentsAsync();
+        Task<bool> CleanupGeneratedDocumentByFilePathAsync(string filePath);
         Task<string> ConvertDocumentFormatAsync(string inputPath, string outputPath, ExportFormat exportFormat);
     }
 
@@ -1221,8 +1222,19 @@ namespace TMS.WebApi.Services
                 {
                     if (File.Exists(document.FilePath))
                     {
-                        await Task.Run(() => File.Delete(document.FilePath));
-                        _logger.LogDebug("Deleted expired file: {FilePath}", document.FilePath);
+                        // Safety: ensure we only delete files under our configured output directory
+                        if (IsUnderOutputDirectory(document.FilePath))
+                        {
+                            var deleted = await TryDeleteFileWithRetriesAsync(document.FilePath);
+                            if (deleted)
+                                _logger.LogDebug("Deleted expired file: {FilePath}", document.FilePath);
+                            else
+                                _logger.LogWarning("Failed to delete expired file after retries: {FilePath}", document.FilePath);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Refusing to delete file outside output directory: {FilePath}", document.FilePath);
+                        }
                     }
                     
                     _generatedDocuments.Remove(generationId);
@@ -1235,6 +1247,81 @@ namespace TMS.WebApi.Services
                 _logger.LogWarning(ex, "Error cleaning up document: {GenerationId}", generationId);
                 return false;
             }
+        }
+
+        public async Task<bool> CleanupGeneratedDocumentByFilePathAsync(string filePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(filePath)) return false;
+
+                // Normalize path
+                var fullPath = Path.GetFullPath(filePath);
+
+                // Find matching generated document by path
+                var entry = _generatedDocuments.FirstOrDefault(kv => string.Equals(Path.GetFullPath(kv.Value.FilePath), fullPath, StringComparison.OrdinalIgnoreCase));
+                if (!entry.Equals(default(KeyValuePair<Guid, GeneratedDocument>)))
+                {
+                    // Use existing cleanup-by-id which handles deletion and removal
+                    return await CleanupSingleDocumentAsync(entry.Key);
+                }
+
+                // If not tracked, attempt safe delete directly (only under output directory)
+                if (IsUnderOutputDirectory(fullPath))
+                {
+                    var deleted = await TryDeleteFileWithRetriesAsync(fullPath);
+                    if (deleted)
+                    {
+                        _logger.LogDebug("Deleted untracked file: {FilePath}", fullPath);
+                        return true;
+                    }
+                    _logger.LogWarning("Failed to delete untracked file: {FilePath}", fullPath);
+                    return false;
+                }
+
+                _logger.LogWarning("Refusing to delete file outside output directory: {FilePath}", fullPath);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error in CleanupGeneratedDocumentByFilePathAsync for {FilePath}", filePath);
+                return false;
+            }
+        }
+
+        private bool IsUnderOutputDirectory(string path)
+        {
+            try
+            {
+                var normalizedOutput = Path.GetFullPath(_outputDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                var normalizedPath = Path.GetFullPath(path);
+                return normalizedPath.StartsWith(normalizedOutput, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<bool> TryDeleteFileWithRetriesAsync(string path, int attempts = 3, int delayMs = 200)
+        {
+            for (int i = 0; i < attempts; i++)
+            {
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+                    return true;
+                }
+                catch (IOException ex) when (i < attempts - 1)
+                {
+                    _logger.LogWarning(ex, "File delete failed, retrying {Attempt}/{Attempts} for {Path}", i + 1, attempts, path);
+                    await Task.Delay(delayMs);
+                }
+            }
+            return false;
         }
 
         private string FindLibreOfficePath()
