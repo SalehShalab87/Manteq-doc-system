@@ -142,6 +142,51 @@ namespace EmailService.WebApi.Controllers
         }
 
         /// <summary>
+        /// Send email with TMS EmailHtml as body and another TMS export as attachment
+        /// </summary>
+        /// <remarks>
+        /// This endpoint generates a document from a TMS template twice:
+        /// - Once as EmailHtml (for the email body)
+        /// - Once as the requested export format (for the attachment)
+        /// </remarks>
+        /// <param name="request">Email request with template info and attachment export format</param>
+        /// <returns>Email send response with status</returns>
+        [HttpPost("send-tms-html-and-attachment")]
+        [ProducesResponseType(typeof(EmailSendResponse), 200)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
+        [ProducesResponseType(500)]
+        public async Task<IActionResult> SendTmsHtmlAndAttachment([FromBody] SendEmailWithTmsHtmlAndAttachmentRequest request)
+        {
+            _logger.LogInformation("Received request to send email with TMS EmailHtml as body (BodyTemplate={BodyTemplateId}) and {ExportFormat} as attachment (AttachmentTemplate={AttachmentTemplateId})",
+                request.AttachmentExportFormat, request.BodyTemplateId, request.AttachmentTemplateId);
+
+            try
+            {
+                var response = await _emailService.SendEmailWithTmsHtmlAndAttachmentAsync(request);
+                if (response.Status == EmailStatus.Sent)
+                {
+                    _logger.LogInformation("Email sent successfully: {EmailId}", response.EmailId);
+                    return Ok(response);
+                }
+                else
+                {
+                    _logger.LogWarning("Email sending failed: {EmailId}, Error: {Error}", response.EmailId, response.ErrorMessage);
+                    return StatusCode(500, response);
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid request for send-tms-html-and-attachment: {Error}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error sending email with TMS html and attachment: BodyTemplate={BodyTemplateId}, AttachmentTemplate={AttachmentTemplateId}", request.BodyTemplateId, request.AttachmentTemplateId);
+                return StatusCode(500, new { error = "An unexpected error occurred while sending the email" });
+            }
+        }
+
+        /// <summary>
         /// Get available email accounts
         /// </summary>
         /// <returns>List of configured email accounts</returns>
