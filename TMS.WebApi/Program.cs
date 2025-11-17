@@ -121,14 +121,19 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Configure CORS if needed
+// Configure CORS for Angular frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(
+                "http://localhost:4200",
+                "http://localhost:4201",
+                "https://localhost:4200",
+                "https://localhost:4201")
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
