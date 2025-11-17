@@ -21,6 +21,8 @@ if (File.Exists(".env"))
 // Build database connection string from environment variables
 var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
 var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
 var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
 
@@ -33,14 +35,24 @@ if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbSe
 }
 else
 {
-    connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 Using TCP/IP connection for remote server");
+    // Check if we should use SQL Authentication or Windows Authentication
+    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 Using SQL Authentication for server: {dbServer}");
+    }
+    else
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 Using Integrated Security for server: {dbServer}");
+    }
 }
 
 Console.WriteLine($"📄 CMS Database: {dbDatabase}");
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
 // Add Entity Framework
 builder.Services.AddDbContext<CmsDbContext>(options =>
@@ -95,6 +107,35 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    service = "CMS API",
+    version = "v1",
+    timestamp = DateTime.UtcNow
+}));
+
+// Root endpoint for production
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Content Management System (CMS) API",
+    version = "v1",
+    status = "running",
+    endpoints = new[]
+    {
+        "GET /health - Health check",
+        "POST /api/documents/register - Register document",
+        "GET /api/documents/{id} - Get document by ID",
+        "GET /api/documents - Get all documents",
+        "POST /api/documents/{id}/activate - Activate document",
+        "POST /api/documents/{id}/deactivate - Deactivate document",
+        "GET /api/documents/types - Get document types"
+    },
+    swagger = app.Environment.IsDevelopment() ? "/swagger" : null
+}));
+
 app.MapControllers();
 
 // Ensure database is created

@@ -25,6 +25,8 @@ if (File.Exists(".env"))
 // Build database connection string from environment variables
 var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
 var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
 var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
 
@@ -37,8 +39,17 @@ if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbSe
 }
 else
 {
-    connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 TMS using TCP/IP connection for remote server");
+    // Check if we should use SQL Authentication or Windows Authentication
+    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 TMS using SQL Authentication for server: {dbServer}");
+    }
+    else
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 TMS using Integrated Security for server: {dbServer}");
+    }
 }
 
 Console.WriteLine($"📄 TMS Database: {dbDatabase}");
@@ -72,6 +83,9 @@ builder.Services.AddDbContext<CmsDbContext>(options =>
     options.UseSqlServer(connectionString);
 });
 
+// Add HttpContextAccessor (required by DocumentService for X-SME-UserId header)
+builder.Services.AddHttpContextAccessor();
+
 // Register CMS Services (used internally by TMS - no CMS endpoints are exposed)
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
@@ -80,6 +94,7 @@ builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
 builder.Services.AddScoped<IDocumentEmbeddingService, DocumentEmbeddingService>();
+builder.Services.AddScoped<IExcelService, ExcelService>();
 
 // Configure Swagger/OpenAPI - only for TMS endpoints
 builder.Services.AddEndpointsApiExplorer();
@@ -136,6 +151,39 @@ app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    service = "TMS API",
+    version = "v1",
+    timestamp = DateTime.UtcNow
+}));
+
+// Root endpoint for production
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Template Management System (TMS) API",
+    version = "v1",
+    status = "running",
+    endpoints = new[]
+    {
+        "GET /health - Health check",
+        "POST /api/templates/register - Register template",
+        "GET /api/templates/{id} - Get template by ID",
+        "GET /api/templates/{id}/properties - Get template properties",
+        "GET /api/templates/template-types - Get template types",
+        "GET /api/templates/export-formats - Get export formats",
+        "GET /api/templates/{id}/analytics - Get template analytics",
+        "GET /api/templates/{id}/download-placeholders-excel - Download placeholders Excel",
+        "POST /api/templates/{id}/test-generate - Test document generation",
+        "POST /api/templates/generate - Generate document",
+        "POST /api/templates/generate-with-embeddings - Generate with embeddings",
+        "GET /api/templates/download/{id} - Download generated document"
+    },
+    swagger = app.Environment.IsDevelopment() ? "/swagger" : null
+}));
+
 app.MapControllers();
 
 // Ensure database is created
@@ -158,6 +206,8 @@ app.Logger.LogInformation("📋 Available endpoints:");
 app.Logger.LogInformation("   POST /api/templates/register - Register new template");
 app.Logger.LogInformation("   GET  /api/templates/{{id}} - Retrieve template");
 app.Logger.LogInformation("   GET  /api/templates/{{id}}/properties - Get template properties");
+app.Logger.LogInformation("   GET  /api/templates/{{id}}/download-placeholders-excel - Download placeholders as Excel");
+app.Logger.LogInformation("   POST /api/templates/{{id}}/test-generate - Test generate with Excel upload");
 app.Logger.LogInformation("   POST /api/templates/generate - Generate document from template");
 app.Logger.LogInformation("   POST /api/templates/generate-with-embeddings - Generate document with embeddings");
 app.Logger.LogInformation("   GET  /api/templates/download/{{id}} - Download generated document");

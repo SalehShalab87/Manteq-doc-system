@@ -159,4 +159,16 @@ namespace TMS.WebApi.Models
         public int ProcessedMainPlaceholders { get; set; }
         public List<string> EmbeddingResults { get; set; } = new();
     }
+
+    /// <summary>
+    /// Request model for testing document generation with Excel file upload
+    /// </summary>
+    public class TestGenerateRequest
+    {
+        [Required]
+        public IFormFile ExcelFile { get; set; } = null!;
+        
+        public ExportFormat ExportFormat { get; set; } = ExportFormat.Word;
+    }
 }
+

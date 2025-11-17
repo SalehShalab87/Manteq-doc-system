@@ -1,0 +1,135 @@
+services:
+  # SQL Server Database - Shared by all services
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: manteq-sqlserver
+    hostname: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=ManteqSystem@2025
+      - MSSQL_PID=Express
+      - MSSQL_DB=CmsDatabase_Dev
+      - MSSQL_AUTHENTICATION_MODE=sql
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - manteq-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ManteqSystem@2025 -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # CMS - Content Management System
+  cms-api:
+    build:
+      context: .
+      dockerfile: CMS.Webapi/Dockerfile
+    container_name: manteq-cms-api
+    hostname: cms-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - DB_SERVER=sqlserver
+      - DB_DATABASE=CmsDatabase_Dev
+      - DB_USER=sa
+      - DB_PASSWORD=ManteqSystem@2025
+      - DB_INTEGRATED_SECURITY=false
+      - DB_TRUST_SERVER_CERTIFICATE=true
+      - FileStorage__Path=/app/storage/CmsDocuments
+    ports:
+      - "5000:5000"
+    volumes:
+      - manteq-shared-storage:/app/storage
+    networks:
+      - manteq-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  # TMS - Template Management System
+  tms-api:
+    build:
+      context: .
+      dockerfile: TMS.WebApi/Dockerfile
+    container_name: manteq-tms-api
+    hostname: tms-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5267
+      - DB_SERVER=sqlserver
+      - DB_DATABASE=CmsDatabase_Dev
+      - DB_USER=sa
+      - DB_PASSWORD=ManteqSystem@2025
+      - DB_INTEGRATED_SECURITY=false
+      - DB_TRUST_SERVER_CERTIFICATE=true
+      - FileStorage__Path=/app/storage/CmsDocuments
+      - TMS__SharedStoragePath=/app/storage/TmsGenerated
+      - TMS__TempUploadPath=/app/storage/TmsTemp
+      - TMS__DocumentRetentionHours=0.25
+      - TMS__CleanupIntervalMinutes=5
+      - TMS__MaxFileSizeMB=100
+      - TMS__LibreOfficeTimeout=30000
+    ports:
+      - "5267:5267"
+    volumes:
+      - manteq-shared-storage:/app/storage
+    networks:
+      - manteq-network
+    depends_on:
+      cms-api:
+        condition: service_started
+      sqlserver:
+        condition: service_healthy
+
+  # Email Service - Email Automation
+  email-service:
+    build:
+      context: .
+      dockerfile: EmailService.WebApi/Dockerfile
+    container_name: manteq-email-service
+    hostname: email-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5030
+      - DB_SERVER=sqlserver
+      - DB_DATABASE=CmsDatabase_Dev
+      - DB_USER=sa
+      - DB_PASSWORD=ManteqSystem@2025
+      - DB_INTEGRATED_SECURITY=false
+      - DB_TRUST_SERVER_CERTIFICATE=true
+      - Email__Smtp__Host=${SMTP_HOST:-smtp-mail.outlook.com}
+      - Email__Smtp__Port=${SMTP_PORT:-587}
+      - Email__Smtp__EnableSsl=${SMTP_ENABLE_SSL:-true}
+      - SMTP_USERNAME=${SMTP_USERNAME:-s.shalab@manteq-me.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-j7>7bs|5£5#t+MJl}
+      - TMS_BASE_URL=http://tms-api:5267
+      - CMS_BASE_URL=http://cms-api:5000
+    ports:
+      - "5030:5030"
+    volumes:
+      - manteq-shared-storage:/app/storage
+    networks:
+      - manteq-network
+    depends_on:
+      tms-api:
+        condition: service_started
+      cms-api:
+        condition: service_started
+      sqlserver:
+        condition: service_healthy
+
+networks:
+  manteq-network:
+    driver: bridge
+    name: manteq-network
+
+volumes:
+  sqlserver-data:
+    name: manteq-sqlserver-data
+  manteq-shared-storage:
+    name: manteq-shared-storage

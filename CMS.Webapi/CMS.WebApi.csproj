@@ -21,4 +21,17 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
   </ItemGroup>
 
+  <!-- 🚫 Do NOT let appsettings.* be treated as publishable content at all -->
+  <ItemGroup>
+    <Content Remove="appsettings.json" />
+    <Content Remove="appsettings.Development.json" />
+
+    <None Update="appsettings.json"
+      CopyToOutputDirectory="Never"
+      CopyToPublishDirectory="Never" />
+    <None Update="appsettings.Development.json"
+      CopyToOutputDirectory="Never"
+      CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

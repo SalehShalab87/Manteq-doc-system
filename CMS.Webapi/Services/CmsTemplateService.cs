@@ -200,5 +200,53 @@ namespace CMS.WebApi.Services
                 throw;
             }
         }
+
+        public async Task<bool> IncrementSuccessCountAsync(Guid id)
+        {
+            try
+            {
+                var template = await _context.Templates.FindAsync(id);
+                if (template == null)
+                {
+                    return false;
+                }
+
+                template.SuccessCount++;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Template success count incremented: {TemplateId}, Count: {Count}", 
+                    id, template.SuccessCount);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing success count for template: {TemplateId}", id);
+                throw;
+            }
+        }
+
+        public async Task<bool> IncrementFailureCountAsync(Guid id)
+        {
+            try
+            {
+                var template = await _context.Templates.FindAsync(id);
+                if (template == null)
+                {
+                    return false;
+                }
+
+                template.FailureCount++;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Template failure count incremented: {TemplateId}, Count: {Count}", 
+                    id, template.FailureCount);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing failure count for template: {TemplateId}", id);
+                throw;
+            }
+        }
     }
 }
