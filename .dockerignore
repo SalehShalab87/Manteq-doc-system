@@ -1,0 +1,13 @@
+**/bin
+**/obj
+**/node_modules
+**/*.dbmdl
+**/*.jfm
+**/.vs
+**/.vscode
+**/wwwroot/lib
+npm-debug.log
+LICENSE
+README.md
+TEAM_GUIDE.md
+secrets.dev.yaml

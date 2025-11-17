@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using EmailService.WebApi.Models;
+using CMS.WebApi.Services;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -32,12 +33,14 @@ namespace EmailService.WebApi.Services
         private readonly ILogger<EmailSendingService> _logger;
         private readonly ITmsIntegrationService _tmsService;
         private readonly ICmsIntegrationService _cmsService;
+        private readonly IEmailTemplateService _emailTemplateService;
 
         public EmailSendingService(
             IConfiguration configuration,
             ILogger<EmailSendingService> logger,
             ITmsIntegrationService tmsService,
-            ICmsIntegrationService cmsService)
+            ICmsIntegrationService cmsService,
+            IEmailTemplateService emailTemplateService)
         {
             _emailConfig = configuration.GetSection("Email").Get<EmailConfiguration>() ?? new EmailConfiguration();
             _smtpConfig = new SmtpConfiguration
@@ -51,6 +54,7 @@ namespace EmailService.WebApi.Services
             _logger = logger;
             _tmsService = tmsService;
             _cmsService = cmsService;
+            _emailTemplateService = emailTemplateService;
         }
 
 

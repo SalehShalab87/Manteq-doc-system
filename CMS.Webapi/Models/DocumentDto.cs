@@ -7,11 +7,7 @@ namespace CMS.WebApi.Models
         [Required]
         public string Name { get; set; } = string.Empty;
         
-        [Required]
-        public string Author { get; set; } = string.Empty;
-        
-        [Required]
-        public string Type { get; set; } = string.Empty;
+        public string? Type { get; set; }  // Optional: Invoice, Contract, Report, Letter
         
         [Required]
         public IFormFile Content { get; set; } = null!;
@@ -27,10 +23,13 @@ namespace CMS.WebApi.Models
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string Author { get; set; } = string.Empty;
-        public DateTime CreationDate { get; set; }
-        public string Type { get; set; } = string.Empty;
+        public string? Type { get; set; }
         public long Size { get; set; }
+        public string Extension { get; set; } = string.Empty;
+        public string MimeType { get; set; } = string.Empty;
+        public DateTime CreationDate { get; set; }
+        public bool IsActive { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
         public string DownloadUrl { get; set; } = string.Empty;
     }
 }

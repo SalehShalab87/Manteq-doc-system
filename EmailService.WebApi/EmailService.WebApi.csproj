@@ -23,4 +23,15 @@
     <ProjectReference Include="..\TMS.WebApi\TMS.WebApi.csproj" />
   </ItemGroup>
 
+  <!-- ✅ EmailService publishes ONLY its own appsettings.* -->
+  <!--    Any appsettings.* coming from referenced projects are ignored -->
+  <ItemGroup>
+    <None Update="appsettings.json"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+    <None Update="appsettings.Development.json"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

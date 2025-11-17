@@ -9,14 +9,20 @@ namespace CMS.WebApi.Services
         private readonly CmsDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<DocumentService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _storagePath;
         private const long MaxFileSize = 50 * 1024 * 1024; // 50MB
 
-        public DocumentService(CmsDbContext context, IConfiguration configuration, ILogger<DocumentService> logger)
+        public DocumentService(
+            CmsDbContext context, 
+            IConfiguration configuration, 
+            ILogger<DocumentService> logger,
+            IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
             _storagePath = _configuration["FileStorage:Path"] ?? Path.Combine(Directory.GetCurrentDirectory(), "Storage");
             
             // Ensure storage directory exists
@@ -25,6 +31,29 @@ namespace CMS.WebApi.Services
                 Directory.CreateDirectory(_storagePath);
                 _logger.LogInformation("Created storage directory: {StoragePath}", _storagePath);
             }
+        }
+
+        private string GetCurrentUserId()
+        {
+            return _httpContextAccessor.HttpContext?.Request.Headers["X-SME-UserId"].FirstOrDefault() 
+                   ?? "SYSTEM";
+        }
+
+        private string GetMimeType(string extension)
+        {
+            return extension.ToLower() switch
+            {
+                "pdf" => "application/pdf",
+                "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "doc" => "application/msword",
+                "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "xls" => "application/vnd.ms-excel",
+                "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "ppt" => "application/vnd.ms-powerpoint",
+                "txt" => "text/plain",
+                "csv" => "text/csv",
+                _ => "application/octet-stream"
+            };
         }
 
         public async Task<RegisterDocumentResponse> RegisterDocumentAsync(RegisterDocumentRequest request)
@@ -42,20 +71,28 @@ namespace CMS.WebApi.Services
                     throw new ArgumentException("File content cannot be empty");
                 }
 
+                // Extract extension from filename
+                var extension = Path.GetExtension(request.Content.FileName).TrimStart('.');
+                
+                // Determine MimeType
+                var mimeType = GetMimeType(extension);
+
                 // Create new document entity
                 var document = new Document
                 {
                     Id = Guid.NewGuid(),
                     Name = request.Name,
-                    Author = request.Author,
-                    Type = request.Type,
+                    Type = request.Type ?? "General",
                     Size = request.Content.Length,
-                    CreationDate = DateTime.UtcNow
+                    Extension = extension,
+                    MimeType = mimeType,
+                    CreationDate = DateTime.UtcNow,
+                    IsActive = true,
+                    CreatedBy = GetCurrentUserId()
                 };
 
-                // Generate file name using metadata name and extension from original file
-                var fileExtension = Path.GetExtension(request.Content.FileName);
-                var fileName = $"{document.Name}_{document.Id}{fileExtension}";
+                // Generate file name: {Name}_{Id}.{extension}
+                var fileName = $"{document.Name}_{document.Id}.{extension}";
                 var filePath = Path.Combine(_storagePath, fileName);
 
                 // Save file to disk
@@ -71,8 +108,8 @@ namespace CMS.WebApi.Services
                 _context.Documents.Add(document);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Document registered successfully: {DocumentId}, Name: {Name}, Size: {Size}",
-                    document.Id, document.Name, document.Size);
+                _logger.LogInformation("Document registered successfully: {DocumentId}, Name: {Name}, Size: {Size}, CreatedBy: {CreatedBy}",
+                    document.Id, document.Name, document.Size, document.CreatedBy);
 
                 return new RegisterDocumentResponse
                 {
@@ -110,10 +147,13 @@ namespace CMS.WebApi.Services
                     {
                         Id = document.Id,
                         Name = document.Name + " [FILE MISSING]",
-                        Author = document.Author,
-                        CreationDate = document.CreationDate,
                         Type = document.Type,
                         Size = document.Size,
+                        Extension = document.Extension,
+                        MimeType = document.MimeType,
+                        CreationDate = document.CreationDate,
+                        IsActive = document.IsActive,
+                        CreatedBy = document.CreatedBy,
                         DownloadUrl = "" // Empty string indicates download not available
                     };
                 }
@@ -125,10 +165,13 @@ namespace CMS.WebApi.Services
                 {
                     Id = document.Id,
                     Name = document.Name,
-                    Author = document.Author,
-                    CreationDate = document.CreationDate,
                     Type = document.Type,
                     Size = document.Size,
+                    Extension = document.Extension,
+                    MimeType = document.MimeType,
+                    CreationDate = document.CreationDate,
+                    IsActive = document.IsActive,
+                    CreatedBy = document.CreatedBy,
                     DownloadUrl = downloadUrl
                 };
             }
@@ -172,10 +215,13 @@ namespace CMS.WebApi.Services
                 {
                     Id = document.Id,
                     Name = document.Name,
-                    Author = document.Author,
-                    CreationDate = document.CreationDate,
                     Type = document.Type,
                     Size = document.Size,
+                    Extension = document.Extension,
+                    MimeType = document.MimeType,
+                    CreationDate = document.CreationDate,
+                    IsActive = document.IsActive,
+                    CreatedBy = document.CreatedBy,
                     DownloadUrl = $"{baseUrl}/api/documents/{document.Id}/download"
                 }).ToList();
 

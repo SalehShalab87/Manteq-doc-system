@@ -26,6 +26,8 @@ if (File.Exists(".env"))
 // Build database connection string from environment variables
 var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
 var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
 var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
 
@@ -38,8 +40,17 @@ if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbSe
 }
 else
 {
-    connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 EmailService using TCP/IP connection for remote server");
+    // Check if we should use SQL Authentication or Windows Authentication
+    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 TMS using SQL Authentication for server: {dbServer}");
+    }
+    else
+    {
+        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
+        Console.WriteLine($"🔧 TMS using Integrated Security for server: {dbServer}");
+    }
 }
 
 Console.WriteLine($"📧 EmailService Database: {dbDatabase}");
@@ -64,9 +75,13 @@ builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.ApplicationModels.IApplic
 builder.Services.AddDbContext<CmsDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+// Add HttpContextAccessor for header reading
+builder.Services.AddHttpContextAccessor();
+
 // Register CMS Services (used internally by Email Service)
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 
 // Register TMS Services (used internally by Email Service)
 builder.Services.AddScoped<ITemplateService, TMS.WebApi.Services.TemplateService>();
@@ -142,6 +157,39 @@ app.UseCors();
 
 app.UseAuthorization();
 
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    service = "Email Service API",
+    version = "v1",
+    timestamp = DateTime.UtcNow
+}));
+
+// Root endpoint for production
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Email Service API",
+    version = "v1",
+    status = "running",
+    endpoints = new[]
+    {
+        "GET /health - Health check",
+        "POST /api/email/send-with-template - Send email with template",
+        "POST /api/email/send-with-documents - Send email with documents",
+        "GET /api/email/accounts - Get email accounts",
+        "POST /api/emailtemplates - Create email template",
+        "GET /api/emailtemplates - Get all email templates",
+        "GET /api/emailtemplates/{id} - Get email template by ID",
+        "PUT /api/emailtemplates/{id} - Update email template",
+        "DELETE /api/emailtemplates/{id} - Delete email template",
+        "POST /api/emailtemplates/{id}/activate - Activate email template",
+        "POST /api/emailtemplates/{id}/deactivate - Deactivate email template",
+        "GET /api/emailtemplates/{id}/analytics - Get email template analytics"
+    },
+    swagger = app.Environment.IsDevelopment() ? "/swagger" : null
+}));
+
 app.MapControllers();
 
 // Ensure database is created
@@ -166,6 +214,11 @@ app.Logger.LogInformation("     POST /api/email/send-with-template - Send email 
 app.Logger.LogInformation("     POST /api/email/send-with-documents - Send email with CMS documents");
 app.Logger.LogInformation("     GET  /api/email/accounts - Get available email accounts");
 app.Logger.LogInformation("     GET  /api/email/health - Health check");
+app.Logger.LogInformation("     POST /api/emailtemplates - Create email template");
+app.Logger.LogInformation("     GET  /api/emailtemplates - Get all email templates");
+app.Logger.LogInformation("     GET  /api/emailtemplates/{id} - Get email template by ID");
+app.Logger.LogInformation("     PUT  /api/emailtemplates/{id} - Update email template");
+app.Logger.LogInformation("     DELETE /api/emailtemplates/{id} - Delete email template");
 app.Logger.LogInformation("🔧 Swagger UI available at: /");
 
 app.Run();

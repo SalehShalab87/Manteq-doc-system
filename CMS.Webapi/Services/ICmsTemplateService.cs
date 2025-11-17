@@ -13,5 +13,7 @@ namespace CMS.WebApi.Services
         Task<bool> DeleteTemplateAsync(Guid id);
         Task<bool> DeactivateTemplateAsync(Guid id);
         Task<bool> ActivateTemplateAsync(Guid id);
+        Task<bool> IncrementSuccessCountAsync(Guid id);
+        Task<bool> IncrementFailureCountAsync(Guid id);
     }
 }

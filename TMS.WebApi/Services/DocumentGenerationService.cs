@@ -24,6 +24,7 @@ namespace TMS.WebApi.Services
     {
         private readonly ITemplateService _templateService;
         private readonly IDocumentService _cmsDocumentService;
+        private readonly ICmsTemplateService _cmsTemplateService;
         private readonly ILogger<DocumentGenerationService> _logger;
         private readonly TmsSettings _tmsSettings;
         private readonly string _outputDirectory;
@@ -34,11 +35,13 @@ namespace TMS.WebApi.Services
         public DocumentGenerationService(
             ITemplateService templateService,
             IDocumentService cmsDocumentService,
+            ICmsTemplateService cmsTemplateService,
             ILogger<DocumentGenerationService> logger,
             IOptions<TmsSettings> tmsSettings)
         {
             _templateService = templateService;
             _cmsDocumentService = cmsDocumentService;
+            _cmsTemplateService = cmsTemplateService;
             _logger = logger;
             _tmsSettings = tmsSettings.Value;
             
@@ -134,6 +137,20 @@ namespace TMS.WebApi.Services
                     _logger.LogInformation("Document generation completed successfully. File: {FileName}, Size: {FileSize} bytes", 
                         generatedDoc.FileName, generatedDoc.FileSizeBytes);
 
+                    // Track successful generation statistics
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _cmsTemplateService.IncrementSuccessCountAsync(request.TemplateId);
+                            _logger.LogDebug("Template success count incremented for: {TemplateId}", request.TemplateId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to increment template success count for: {TemplateId}", request.TemplateId);
+                        }
+                    });
+
                     return new DocumentGenerationResponse
                     {
                         GenerationId = generationId,
@@ -159,6 +176,21 @@ namespace TMS.WebApi.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating document for template: {TemplateId}", request.TemplateId);
+                
+                // Track failed generation statistics
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _cmsTemplateService.IncrementFailureCountAsync(request.TemplateId);
+                        _logger.LogDebug("Template failure count incremented for: {TemplateId}", request.TemplateId);
+                    }
+                    catch (Exception statEx)
+                    {
+                        _logger.LogWarning(statEx, "Failed to increment template failure count for: {TemplateId}", request.TemplateId);
+                    }
+                });
+                
                 throw;
             }
         }

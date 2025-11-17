@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using TMS.WebApi.Models;
 using TMS.WebApi.Services;
+using CMS.WebApi.Services;
+using CMS.WebApi.Models;
 
 namespace TMS.WebApi.Controllers
 {
@@ -12,17 +14,23 @@ namespace TMS.WebApi.Controllers
     private readonly ITemplateService _templateService;
     private readonly IDocumentGenerationService _documentGenerationService;
     private readonly IDocumentEmbeddingService _documentEmbeddingService;
+    private readonly ICmsTemplateService _cmsTemplateService;
+    private readonly IExcelService _excelService;
     private readonly ILogger<TemplatesController> _logger;
 
     public TemplatesController(
         ITemplateService templateService,
         IDocumentGenerationService documentGenerationService,
         IDocumentEmbeddingService documentEmbeddingService,
+        ICmsTemplateService cmsTemplateService,
+        IExcelService excelService,
         ILogger<TemplatesController> logger)
     {
         _templateService = templateService;
         _documentGenerationService = documentGenerationService;
         _documentEmbeddingService = documentEmbeddingService;
+        _cmsTemplateService = cmsTemplateService;
+        _excelService = excelService;
         _logger = logger;
     }        /// <summary>
         /// API 1: Register Template
@@ -351,6 +359,121 @@ namespace TMS.WebApi.Controllers
         }
 
         /// <summary>
+        /// Get template types enum values for Angular dropdowns
+        /// </summary>
+        [HttpGet("template-types")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public IActionResult GetTemplateTypes()
+        {
+            var types = Enum.GetValues(typeof(TemplateType))
+                .Cast<TemplateType>()
+                .Select(t => new { Value = (int)t, Name = t.ToString() })
+                .ToList();
+            
+            return Ok(types);
+        }
+
+        /// <summary>
+        /// Get export formats enum values for Angular dropdowns
+        /// </summary>
+        [HttpGet("export-formats")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public IActionResult GetExportFormats()
+        {
+            var formats = Enum.GetValues(typeof(TMS.WebApi.Models.ExportFormat))
+                .Cast<TMS.WebApi.Models.ExportFormat>()
+                .Select(f => new { Value = (int)f, Name = f.ToString() })
+                .ToList();
+            
+            return Ok(formats);
+        }
+
+        /// <summary>
+        /// Get template analytics including success/failure statistics
+        /// </summary>
+        [HttpGet("{id:guid}/analytics")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetTemplateAnalytics(Guid id)
+        {
+            try
+            {
+                var template = await _cmsTemplateService.GetTemplateByIdAsync(id);
+                if (template == null)
+                    return NotFound(new { error = "Template not found" });
+                
+                var totalGenerations = template.SuccessCount + template.FailureCount;
+                var successRate = totalGenerations > 0 
+                    ? (double)template.SuccessCount / totalGenerations * 100 
+                    : 0;
+                
+                return Ok(new
+                {
+                    TemplateId = template.Id,
+                    TemplateName = template.Name,
+                    SuccessCount = template.SuccessCount,
+                    FailureCount = template.FailureCount,
+                    TotalGenerations = totalGenerations,
+                    SuccessRate = Math.Round(successRate, 2)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving template analytics: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Increment success count for template (called internally after successful generation)
+        /// </summary>
+        [HttpPost("{id:guid}/increment-success")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> IncrementSuccessCount(Guid id)
+        {
+            try
+            {
+                var result = await _cmsTemplateService.IncrementSuccessCountAsync(id);
+                if (!result)
+                    return NotFound(new { error = "Template not found" });
+                
+                return Ok(new { message = "Success count incremented" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing success count: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Increment failure count for template (called internally after failed generation)
+        /// </summary>
+        [HttpPost("{id:guid}/increment-failure")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> IncrementFailureCount(Guid id)
+        {
+            try
+            {
+                var result = await _cmsTemplateService.IncrementFailureCountAsync(id);
+                if (!result)
+                    return NotFound(new { error = "Template not found" });
+                
+                return Ok(new { message = "Failure count incremented" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing failure count: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
         /// 5. Generate Document With Embeddings - Creates a document from a main template with embedded sub-templates
         /// Powerful feature that allows compositing multiple templates into a single document
         /// </summary>
@@ -411,6 +534,117 @@ namespace TMS.WebApi.Controllers
             {
                 _logger.LogError(ex, "Error generating document with embeddings for template: {MainTemplateId}", request.MainTemplateId);
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An error occurred while generating the document with embeddings" });
+            }
+        }
+
+        /// <summary>
+        /// Download placeholders as Excel file for offline editing
+        /// </summary>
+        [HttpGet("{id:guid}/download-placeholders-excel")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DownloadPlaceholdersExcel(Guid id)
+        {
+            try
+            {
+                var properties = await _templateService.GetTemplatePropertiesAsync(id);
+                if (properties == null)
+                    return NotFound(new { error = "Template not found" });
+
+                var placeholders = properties.Properties.Select(p => p.Name).ToList();
+                var excelBytes = await _excelService.GeneratePlaceholdersExcelAsync(placeholders);
+
+                var fileName = $"Placeholders_{properties.TemplateName}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                _logger.LogInformation("Generated placeholders Excel for template: {TemplateId} with {Count} placeholders", 
+                    id, placeholders.Count);
+
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating placeholders Excel: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Test generate document by uploading filled Excel file
+        /// Upload Excel with placeholder values, system generates document without storing Excel
+        /// </summary>
+        [HttpPost("{id:guid}/test-generate")]
+        [ProducesResponseType(typeof(DocumentGenerationResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> TestGenerateWithExcel(
+            Guid id,
+            [FromForm] TestGenerateRequest request,
+            [FromQuery] bool autoDownload = false)
+        {
+            try
+            {
+                if (request.ExcelFile == null || request.ExcelFile.Length == 0)
+                    return BadRequest(new { error = "Excel file is required" });
+
+                if (!request.ExcelFile.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { error = "Only .xlsx files are supported" });
+
+                // Read Excel and convert to property values dictionary
+                Dictionary<string, string> propertyValues;
+                using (var stream = request.ExcelFile.OpenReadStream())
+                {
+                    propertyValues = await _excelService.ReadExcelToJsonAsync(stream);
+                }
+
+                if (propertyValues.Count == 0)
+                    return BadRequest(new { error = "No property values found in Excel file" });
+
+                // Generate document using the property values
+                var generateRequest = new DocumentGenerationRequest
+                {
+                    TemplateId = id,
+                    PropertyValues = propertyValues,
+                    ExportFormat = request.ExportFormat,
+                    GeneratedBy = "ExcelTest"
+                };
+
+                var response = await _documentGenerationService.GenerateDocumentAsync(generateRequest);
+
+                _logger.LogInformation("Test document generated from Excel: {TemplateId}, {PropertyCount} properties", 
+                    id, propertyValues.Count);
+
+                // If autoDownload is requested, return the file directly
+                if (autoDownload)
+                {
+                    try
+                    {
+                        var fileBytes = await _documentGenerationService.DownloadGeneratedDocumentAsync(response.GenerationId);
+                        var contentType = GetContentType(response.FileName);
+                        
+                        _logger.LogInformation("📥 Auto-downloading test document: {FileName}", response.FileName);
+
+                        return File(fileBytes, contentType, response.FileName);
+                    }
+                    catch (Exception downloadEx)
+                    {
+                        _logger.LogError(downloadEx, "Error during auto-download for test generation {GenerationId}", response.GenerationId);
+                        // Fall back to returning metadata if auto-download fails
+                    }
+                }
+
+                return Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid Excel file or template: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error test generating document with Excel: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
             }
         }
     }

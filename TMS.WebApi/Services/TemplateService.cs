@@ -79,7 +79,6 @@ namespace TMS.WebApi.Services
                     var documentRequest = new RegisterDocumentRequest
                     {
                         Name = request.TemplateFile.FileName,
-                        Author = request.CreatedBy,
                         Type = GetDocumentType(fileExtension),
                         Content = request.TemplateFile
                     };
@@ -145,7 +144,7 @@ namespace TMS.WebApi.Services
                 {
                     Id = template.Id,
                     Name = template.Name,
-                    Description = template.Description,
+                    Description = template.Description == null ? "" : template.Description,
                     Category = template.Category,
                     CmsDocumentId = template.CmsDocumentId,
                     Placeholders = template.Placeholders,
@@ -153,7 +152,7 @@ namespace TMS.WebApi.Services
                     UpdatedAt = template.UpdatedAt,
                     IsActive = template.IsActive,
                     CreatedBy = template.CreatedBy,
-                    UpdatedBy = template.UpdatedBy,
+                    UpdatedBy = template.UpdatedBy == null ? "" : template.UpdatedBy,
                     TemplateDownloadUrl = documentResponse?.DownloadUrl ?? ""
                 };
             }
@@ -179,7 +178,7 @@ namespace TMS.WebApi.Services
                     {
                         Id = template.Id,
                         Name = template.Name,
-                        Description = template.Description,
+                        Description = template.Description == null ? "" : template.Description,
                         Category = template.Category,
                         CmsDocumentId = template.CmsDocumentId,
                         Placeholders = template.Placeholders,
@@ -187,7 +186,7 @@ namespace TMS.WebApi.Services
                         UpdatedAt = template.UpdatedAt,
                         IsActive = template.IsActive,
                         CreatedBy = template.CreatedBy,
-                        UpdatedBy = template.UpdatedBy,
+                        UpdatedBy = template.UpdatedBy == null ? "" : template.UpdatedBy,
                         TemplateDownloadUrl = documentResponse?.DownloadUrl ?? ""
                     });
                 }
