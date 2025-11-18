@@ -1,13 +1,10 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import {
-  MANTEQ_CONFIG,
-  USER_CONTEXT,
-  authInterceptor,
-} from '../../dist/manteq-ui-lib';
+
 
 import { routes } from './app.routes';
+import { authInterceptor, MANTEQ_CONFIG, USER_CONTEXT } from '../../projects/manteq-ui-lib/src/public-api';
 
 export const appConfig: ApplicationConfig = {
   providers: [

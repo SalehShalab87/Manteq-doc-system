@@ -1,623 +1,643 @@
 # 📄 Manteq Document System
 
-A **production-ready** document a### **Required Software**
-- ✅ **.NET 9.0 SDK** - Download from Microsoft
-- ✅ **SQL Server Express** with SQLEXPRESS instance  
-- ✅ **LibreOffice** - For document conversion (free download)
-- ✅ **Visual Studio Code** or Visual Studio 2022
+**Production-ready microservices platform** for document management, template processing, and email automation. Built with ASP.NET Core 9.0, PostgreSQL, and Docker.
 
-### **🔒 Environment Configuration (Critical)**
-**All services use environment variables for database connections - no credentials in code!**
+> 🔥 **Status**: ✅ **PRODUCTION READY** - Fully tested microservices architecture with stateless services and data gateway pattern.
 
-Each service requires a `.env` file with database configuration:
-```env
-# Database Configuration Template
-# Copy this to .env file in each service directory
-DB_SERVER=YOUR_SERVER\\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-```
-
-**Required .env files:**
-- `CMS.WebApi/.env`
-- `TMS.WebApi/.env` 
-- `EmailService.WebApi/.env`
-
-### **🗂️ Shared Storage Setup**on platform consisting of **Content Management System (CMS)**, **Template Management System (TMS)**, and **Email Service** built with ASP.NET Core 9.0.
-
-> 🔥 **Status**: ✅ **PRODUCTION READY** - Fully tested with shared storage architecture and microservices integration
+---
 
 ## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    MANTEQ DOCUMENT SYSTEM                   │
-├─────────────────────────────────────────────────────────────┤
-│  📁 CMS API          🎯 TMS API          📧 Email Service   │
-│  localhost:5000      localhost:5267      localhost:5030     │
-│                                                             │
-│  • Document Storage  • Template Engine   • SMTP Integration │
-│  • File Management   • Format Conversion • TMS Integration  │
-│  • Database Access   • Placeholder Fill  • CMS Integration  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                ┌─────────────┴─────────────┐
-                │      SHARED RESOURCES     │
-                ├───────────────────────────┤
-                │ 🗄️ CmsDatabase_Dev       │
-                │ 📁 C:\ManteqStorage_Shared │
-                │ ⚙️ LibreOffice            │
-                └───────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    MANTEQ DOCUMENT SYSTEM                       │
+│                     (Microservices Architecture)                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  📧 Email Service ────► 🎯 TMS API ────► 📁 CMS API            │
+│  Port: 5030            Port: 5267       Port: 5000             │
+│  (Orchestrator)        (Generator)      (Data Gateway)          │
+│                                                                 │
+│  • MailKit/SMTP       • LibreOffice     • PostgreSQL           │
+│  • HTTP Client        • OpenXML         • File Storage         │
+│  • Stateless          • HTTP Client     • Entity Framework     │
+│  • Polly Resilience   • Stateless       • REST APIs            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                        ┌───────────┴────────────┐
+                        │   SHARED RESOURCES     │
+                        ├────────────────────────┤
+                        │ 🗄️ PostgreSQL (CMS)   │
+                        │ 📁 File Storage (CMS)  │
+                        │ 🔄 Auto-Cleanup (TMS)  │
+                        └────────────────────────┘
 ```
 
-### **🎯 Service Integration Flow**
+### **🎯 Architecture Highlights**
+
+| Service | Role | Database | Storage | Key Technology |
+|---------|------|----------|---------|----------------|
+| **CMS** | Data Gateway | ✅ PostgreSQL | ✅ File System | Entity Framework Core |
+| **TMS** | Document Generator | ❌ HTTP Client | 🔄 Temporary (15min) | LibreOffice + OpenXML |
+| **Email** | Email Orchestrator | ❌ HTTP Client | ❌ None | MailKit + Polly |
+
+---
+
+## 🚀 Service Overview
+
+### **📁 CMS (Content Management System)** - Port 5000
+
+**Role**: Central data gateway and document storage
+
+**Responsibilities**:
+- ✅ PostgreSQL database ownership (4 tables)
+- ✅ Document CRUD operations
+- ✅ Email template management
+- ✅ CMS template metadata for TMS
+- ✅ File storage management
+- ✅ Soft delete/trash system
+- ✅ Analytics tracking
+
+**Key Endpoints**:
 ```
-User Upload Template → TMS → Creates Document in CMS → Stores in Shared Storage
-Generate Document → TMS → Process Template → Save to TmsGenerated (auto-cleanup)
-Send Email → EmailService → Call TMS → Generate HTML → Send via SMTP
-```
-
-## 🚀 Features Overview
-
-### **📁 CMS (Content Management System) - Port 5000**
-- ✅ **Document Storage**: Centralized file storage in shared directory
-- ✅ **Database Integration**: SQL Server with Documents table
-- ✅ **File Management**: Upload, download, and metadata tracking
-- ✅ **REST API**: Complete CRUD operations with Swagger docs
-- ✅ **Security**: File type validation and size limits
-
-### **🎯 TMS (Template Management System) - Port 5267**
-- ✅ **Office Template Processing**: Word, Excel, PowerPoint templates
-- ✅ **Dynamic Placeholders**: Replace {{PropertyName}} with actual values
-- ✅ **Multiple Export Formats**: Word, HTML, EmailHtml, PDF, Original
-- ✅ **LibreOffice Integration**: High-quality document conversion
-- ✅ **Auto-Cleanup**: Generated files removed every 15 minutes
-- ✅ **CMS Integration**: Internal CMS services for template storage
-- ✅ **Email-Ready HTML**: Base64 embedded images for email clients
-
-### **📧 Email Service - Port 5030**
-- ✅ **TMS Integration**: Generate documents on-the-fly for email content
-- ✅ **CMS Integration**: Attach existing documents from CMS
-- ✅ **SMTP Support**: Multi-account email configuration
-- ✅ **EmailHtml Format**: Template content becomes email body
-- ✅ **Health Monitoring**: Service status and configuration checks
-- ✅ **Async Processing**: Non-blocking email operations
-
-## 📋 Prerequisites
-
-### **Required Software**
-- ✅ **.NET 9.0 SDK** - Download from Microsoft
-- ✅ **SQL Server Express** with SQLEXPRESS instance  
-- ✅ **LibreOffice** - For document conversion (free download)
-- ✅ **Visual Studio Code** or Visual Studio 2022
-
-### **�️ Shared Storage Setup**
-The system uses centralized file storage that all services share:
-
-```powershell
-# Create shared storage directories (run once)
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsGenerated" -Force  
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsTemp" -Force
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\EmailAttachments" -Force
+POST   /api/documents/register
+GET    /api/documents/{id}
+POST   /api/email-templates
+GET    /api/templates
+GET    /api/trash
 ```
 
-### **🗄️ Database Requirements**
+**Technology Stack**:
+- ASP.NET Core 9.0
+- Entity Framework Core
+- PostgreSQL 16
+- File System Storage
+
+📖 **[Full CMS Documentation →](CMS.Webapi/README.md)**
+
+---
+
+### **🎯 TMS (Template Management System)** - Port 5267
+
+**Role**: Stateless document generation engine
+
+**Responsibilities**:
+- ✅ Template registration via CMS
+- ✅ Placeholder extraction (OpenXML)
+- ✅ Document generation from templates
+- ✅ Multi-format export (Word, PDF, HTML, EmailHtml)
+- ✅ LibreOffice conversion
+- ✅ Base64 image embedding for EmailHtml
+- ✅ Auto-cleanup (15-minute retention)
+- ✅ Excel workflow support
+
+**Key Endpoints**:
+```
+POST   /api/templates/register
+POST   /api/templates/generate
+POST   /api/templates/generate?autoDownload=true
+GET    /api/templates/{id}/properties
+POST   /api/templates/generate-with-embeddings
+```
+
+**Technology Stack**:
+- ASP.NET Core 9.0
+- OpenXML SDK
+- LibreOffice
+- EPPlus (Excel)
+- HTTP Client (CMS)
+
+📖 **[Full TMS Documentation →](TMS.WebApi/README.md)**
+
+---
+
+### **📧 Email Service** - Port 5030
+
+**Role**: Email orchestration and delivery
+
+**Responsibilities**:
+- ✅ Template-based email sending
+- ✅ TMS EmailHtml generation integration
+- ✅ CMS document attachment retrieval
+- ✅ Multi-account SMTP support
+- ✅ MailKit email sending
+- ✅ Polly resilience (retry + circuit breaker)
+- ✅ Analytics tracking via CMS
+
+**Key Endpoints**:
+```
+POST   /api/email/send-with-template
+POST   /api/email/send-with-documents
+POST   /api/email/send-tms-html-and-attachment
+POST   /api/email/test-template
+GET    /api/email/accounts
+```
+
+**Technology Stack**:
+- ASP.NET Core 9.0
+- MailKit/MimeKit
+- HTTP Clients (TMS + CMS)
+- Polly (Resilience)
+
+📖 **[Full Email Service Documentation →](EmailService.WebApi/README.md)**
+
+---
+
+## 📊 Data Flow Patterns
+
+### **Pattern 1: Email with TMS EmailHtml**
+
+```
+User Request
+    ↓
+Email Service
+    ├─► CMS: Get email template config
+    ├─► TMS: Generate EmailHtml with base64 images
+    ├─► TMS: Auto-cleanup after generation
+    └─► SMTP: Send email with HTML body
+```
+
+### **Pattern 2: Document Generation**
+
+```
+User Request
+    ↓
+TMS API
+    ├─► CMS: Get template metadata
+    ├─► CMS: Download template file
+    ├─► OpenXML: Extract placeholders
+    ├─► OpenXML: Fill data
+    ├─► LibreOffice: Convert format
+    └─► Return: Generated document (15min retention)
+```
+
+### **Pattern 3: Email Template Management**
+
+```
+User Request
+    ↓
+CMS API
+    ├─► Database: CRUD operations
+    ├─► File Storage: Save custom HTML templates
+    ├─► File Storage: Save custom attachments
+    └─► Return: Template configuration
+```
+
+---
+
+## 🗄️ Database Schema
+
+### **PostgreSQL Database** (Owned by CMS)
+
 ```sql
--- Single shared database for all services
-CREATE DATABASE CmsDatabase_Dev;
-
--- Tables are created automatically via Entity Framework:
--- - Documents (CMS) - Stores all documents and templates
--- - Templates (TMS) - References Documents via foreign key
+📊 cms_database
+├── documents
+│   ├── id (uuid, PK)
+│   ├── name, type, size, extension
+│   ├── file_path, mime_type
+│   ├── is_active, is_deleted
+│   └── created_by, creation_date
+│
+├── templates
+│   ├── id (uuid, PK)
+│   ├── name, description, category
+│   ├── cms_document_id (FK → documents)
+│   ├── placeholders (jsonb array)
+│   ├── template_type, default_export_format
+│   ├── success_count, failure_count
+│   └── is_active, is_deleted
+│
+├── email_templates
+│   ├── id (uuid, PK)
+│   ├── name, subject, html_content
+│   ├── body_source_type (PlainText/TmsTemplate/CustomTemplate)
+│   ├── tms_template_id, custom_template_file_path
+│   ├── sent_count, failure_count
+│   └── is_active, is_deleted, category
+│
+└── email_template_attachments
+    ├── id (uuid, PK)
+    ├── email_template_id (FK → email_templates)
+    ├── source_type (CmsDocument/TmsTemplate/CustomFile)
+    ├── cms_document_id (FK → documents)
+    ├── tms_template_id, tms_export_format
+    └── custom_file_path, display_order
 ```
 
-## ⚡ Quick Start (5 Minutes)
+**Access Pattern**:
+- ✅ **CMS**: Direct database access (Entity Framework)
+- ✅ **TMS**: HTTP API calls to CMS
+- ✅ **Email**: HTTP API calls to CMS
 
-### **1. Clone and Setup**
-```powershell
+---
+
+## 📁 File Storage Architecture
+
+### **Storage Locations**
+
+```
+Windows:
+C:\ManteqStorage\
+├── CmsDocuments\      # Permanent (CMS owned)
+├── TmsGenerated\      # Temporary (15min, TMS cleanup)
+└── TmsTemp\           # Working (immediate cleanup)
+
+Docker:
+/app/storage/
+├── CmsDocuments/      # Volume: cms-storage
+├── TmsGenerated/      # Volume: tms-storage
+└── TmsTemp/           # Volume: tms-storage
+```
+
+### **Storage Management**
+
+| Location | Retention | Managed By | Purpose |
+|----------|-----------|------------|---------|
+| `CmsDocuments` | ♾️ Permanent | CMS | Documents, templates |
+| `TmsGenerated` | 15 minutes | TMS | Generated docs |
+| `TmsTemp` | Immediate | TMS | Processing workspace |
+
+---
+
+## 🚀 Quick Start
+
+### **Prerequisites**
+
+- ✅ **.NET 9.0 SDK**
+- ✅ **Docker** & **Docker Compose**
+- ✅ **LibreOffice** (for local TMS)
+- ✅ **SMTP Account** (Outlook, Gmail)
+
+### **Option 1: Docker Compose (Recommended)**
+
+```bash
 # Clone repository
 git clone https://github.com/SalehShalab87/Manteq-doc-system.git
 cd Manteq-doc-system
 
-# Create shared storage (required)
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsGenerated" -Force  
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\TmsTemp" -Force
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\EmailAttachments" -Force
+# Configure SMTP (create .env or edit docker-compose.yml)
+export SMTP_HOST=smtp-mail.outlook.com
+export SMTP_PORT=587
+export SMTP_USERNAME=your-email@outlook.com
+export SMTP_PASSWORD=your-app-password
+
+# Start all services
+docker-compose up -d
+
+# Verify services
+curl http://localhost:5000/health  # CMS
+curl http://localhost:5267/health  # TMS
+curl http://localhost:5030/health  # Email
 ```
 
-### **2. Configure Environment Variables**
-```powershell
-# Create .env files for each service (REQUIRED)
-@"
-DB_SERVER=YOUR_SERVER\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-"@ | Out-File -FilePath "CMS.WebApi\.env" -Encoding UTF8
+**Access Points**:
+- 🌐 CMS: `http://localhost:5000` - [Swagger](http://localhost:5000/swagger)
+- 🎯 TMS: `http://localhost:5267` - [Swagger](http://localhost:5267/swagger)
+- 📧 Email: `http://localhost:5030` - [Swagger](http://localhost:5030/swagger)
 
-@"
-DB_SERVER=YOUR_SERVER\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-"@ | Out-File -FilePath "TMS.WebApi\.env" -Encoding UTF8
+### **Option 2: Local Development**
 
-@"
-DB_SERVER=YOUR_SERVER\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-"@ | Out-File -FilePath "EmailService.WebApi\.env" -Encoding UTF8
-```
+```bash
+# 1. Start PostgreSQL
+docker run -d \
+  --name manteq-postgres \
+  -e POSTGRES_DB=cms_database \
+  -e POSTGRES_USER=cms_user \
+  -e POSTGRES_PASSWORD=ManteqCMS@2025 \
+  -p 5432:5432 \
+  postgres:16-alpine
 
-### **3. Build and Run Services**
+# 2. Create storage directories
+mkdir -p C:\ManteqStorage\CmsDocuments
+mkdir -p C:\ManteqStorage\TmsGenerated
+mkdir -p C:\ManteqStorage\TmsTemp
 
-# Build entire system
-dotnet build ManteqDocumentSystem.sln
-```
-
-### **2. Start All Services (3 Terminals)**
-```powershell
-# Terminal 1: CMS (Content Management)
+# 3. Start CMS
 cd CMS.Webapi
 dotnet run
-# ➡️ Access: http://localhost:5000 (Swagger: http://localhost:5000/swagger)
 
-# Terminal 2: TMS (Template Management) 
+# 4. Start TMS (new terminal)
 cd TMS.WebApi
 dotnet run
-# ➡️ Access: http://localhost:5267 (Swagger: http://localhost:5267/swagger)
 
-# Terminal 3: Email Service
+# 5. Start Email Service (new terminal)
 cd EmailService.WebApi
 dotnet run
-# ➡️ Access: http://localhost:5030 (Swagger: http://localhost:5030/swagger)
 ```
 
-### **3. Test the System**
-```powershell
-# Health check all services
-curl http://localhost:5000/api/documents/health
-curl http://localhost:5267/api/templates/health  
-curl http://localhost:5030/api/email/health
+---
 
-# ✅ All should return: {"status": "healthy"}
+## 🔄 Complete Workflow Example
+
+### **Scenario**: Send email with TMS-generated content and PDF attachment
+
+```bash
+# Step 1: Register template in TMS (stores in CMS)
+curl -X POST http://localhost:5267/api/templates/register \
+  -F "name=Invoice Template" \
+  -F "category=Invoices" \
+  -F "TemplateFile=@invoice_template.docx"
+# Returns: { "templateId": "template-guid", "extractedPlaceholders": [...] }
+
+# Step 2: Create email template in CMS
+curl -X POST http://localhost:5000/api/email-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Invoice Email",
+    "subject": "Your Invoice {{InvoiceNumber}}",
+    "bodySourceType": 1,
+    "tmsTemplateId": "template-guid",
+    "category": "Invoices"
+  }'
+# Returns: { "id": "email-template-guid" }
+
+# Step 3: Send email (Email Service orchestrates TMS + SMTP)
+curl -X POST http://localhost:5030/api/email/send-tms-html-and-attachment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toRecipients": ["customer@example.com"],
+    "subject": "Your Invoice INV-2025-001",
+    "bodyTemplateId": "template-guid",
+    "bodyPropertyValues": {
+      "CustomerName": "John Smith",
+      "InvoiceNumber": "INV-2025-001"
+    },
+    "attachmentTemplateId": "template-guid",
+    "attachmentPropertyValues": {
+      "CustomerName": "John Smith",
+      "InvoiceNumber": "INV-2025-001",
+      "Amount": "1,250.00",
+      "DueDate": "2025-12-01"
+    },
+    "attachmentExportFormat": "Pdf"
+  }'
+# Result: Email sent with HTML body + PDF attachment
 ```
 
-> **🎉 That's it!** All three services are running and ready to process documents.
+---
 
-## 🔗 API Endpoints
+## 🐳 Docker Compose Configuration
 
-### **📁 CMS APIs (Port 5000)**
-```http
-# Upload and register documents
-POST http://localhost:5000/api/documents/register
-Content-Type: multipart/form-data
+### **docker-compose.yml** (Provided)
 
-# Get document metadata  
-GET http://localhost:5000/api/documents/{documentId}
+```yaml
+services:
+  # PostgreSQL - CMS Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cms_database
+      POSTGRES_USER: cms_user
+      POSTGRES_PASSWORD: ManteqCMS@2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
 
-# Download document file
-GET http://localhost:5000/api/documents/{documentId}/download
+  # CMS - Data Gateway
+  cms-api:
+    build:
+      context: .
+      dockerfile: CMS.Webapi/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=cms_database;...
+      - FileStorage__Path=/app/storage/CmsDocuments
+    ports:
+      - "5000:5000"
+    volumes:
+      - cms-storage:/app/storage
+    depends_on:
+      - postgres
 
-# Health check
-GET http://localhost:5000/api/documents/health
+  # TMS - Document Generator
+  tms-api:
+    build:
+      context: .
+      dockerfile: TMS.WebApi/Dockerfile
+    environment:
+      - CmsApi__BaseUrl=http://cms-api:5000
+      - TMS__SharedStoragePath=/app/storage/TmsGenerated
+    ports:
+      - "5267:5267"
+    volumes:
+      - tms-storage:/app/storage
+    depends_on:
+      - cms-api
+
+  # Email - Orchestrator
+  email-service:
+    build:
+      context: .
+      dockerfile: EmailService.WebApi/Dockerfile
+    environment:
+      - Email__Smtp__Host=${SMTP_HOST}
+      - Email__Smtp__Username=${SMTP_USERNAME}
+      - Email__Smtp__Password=${SMTP_PASSWORD}
+      - TmsApi__BaseUrl=http://tms-api:5267
+      - CmsApi__BaseUrl=http://cms-api:5000
+    ports:
+      - "5030:5030"
+    depends_on:
+      - tms-api
+      - cms-api
+
+volumes:
+  postgres-data:
+  cms-storage:
+  tms-storage:
 ```
 
-### **🎯 TMS APIs (Port 5267)**
-```http
-# Register template (creates document in CMS internally)
-POST http://localhost:5267/api/templates/register
-Content-Type: multipart/form-data
-
-# Generate document from template
-POST http://localhost:5267/api/templates/generate
-Content-Type: application/json
-
-# Download generated document
-GET http://localhost:5267/api/templates/download/{generationId}
-
-# Get template properties (placeholders)
-GET http://localhost:5267/api/templates/{templateId}/properties
-
-# Health check
-GET http://localhost:5267/api/templates/health
-```
-
-### **📧 Email Service APIs (Port 5030)**  
-```http
-# Send email with TMS-generated content
-POST http://localhost:5030/api/email/send-generated-document
-Content-Type: application/json
-
-# Send email with CMS document attachments
-POST http://localhost:5030/api/email/send-with-attachments
-Content-Type: application/json
-
-# Health check
-GET http://localhost:5030/api/email/health
-```
-
-## 🎯 Usage Examples
-
-### **Example 1: Template Registration and Generation**
-```http
-# Step 1: Register a template (TMS calls CMS internally)
-POST http://localhost:5267/api/templates/register
-Content-Type: multipart/form-data
-
-file: Email_Template.docx (contains {{CustomerName}}, {{PolicyNumber}})
-name: Customer Email Template
-description: Template for customer communications
-
-# Response: { "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25" }
-
-# Step 2: Generate document with data
-POST http://localhost:5267/api/templates/generate
-Content-Type: application/json
-
-{
-  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
-  "propertyValues": {
-    "CustomerName": "John Smith",
-    "PolicyNumber": "POL-2025-001234"
-  },
-  "exportFormat": "EmailHtml",
-  "generatedBy": "API User"
-}
-
-# Response: { "generationId": "abc123...", "downloadUrl": "/api/templates/download/abc123..." }
-```
-
-### **Example 2: Email Automation**
-```http
-# Send email using TMS template (generates content on-the-fly)
-POST http://localhost:5030/api/email/send-generated-document
-Content-Type: application/json
-
-{
-  "to": ["john.smith@customer.com"],
-  "subject": "Your Policy Documents",
-  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
-  "propertyValues": {
-    "CustomerName": "John Smith",
-    "PolicyNumber": "POL-2025-001234",
-    "SupportEmail": "support@manteq-me.com"
-  },
-  "exportFormat": "EmailHtml"
-}
-
-# The template content becomes the email body automatically!
-```
-
-### **Example 3: File Storage Verification**
-```powershell
-# Check where files are stored
-Get-ChildItem "C:\ManteqStorage_Shared\CmsDocuments\"        # Original templates
-Get-ChildItem "C:\ManteqStorage_Shared\TmsGenerated\"        # Generated documents (auto-cleanup)
-Get-ChildItem "C:\ManteqStorage_Shared\TmsTemp\"             # Processing workspace
-```
-
-### **🎨 Export Formats**
-- 📄 **Word** (.docx) - Preserve original formatting and layout
-- 🌐 **HTML** - Web-compatible output with CSS styling  
-- 📧 **EmailHtml** - Email-optimized HTML with base64 embedded images
-- 📋 **PDF** - Professional document format (via LibreOffice)
-- 📂 **Original** - Keep source format unchanged
-
-### **📧 EmailHtml Special Features**
-- 🖼️ **Base64 Images**: All images embedded directly (no external references)
-- 🎨 **Email-Client Compatible**: Works with Outlook, Gmail, etc.
-- 🧹 **Clean HTML**: LibreOffice field codes removed automatically
-- 📱 **Responsive**: Mobile-friendly email layouts
-
-## 🔧 Configuration
-
-### **� Environment Variables (All Services)**
-**Database connections are configured via `.env` files in each service directory - NO credentials in appsettings.json!**
-
-**Required `.env` files:**
-- `CMS.WebApi/.env`
-- `TMS.WebApi/.env` 
-- `EmailService.WebApi/.env`
-
-**Template for each `.env` file:**
-```env
-DB_SERVER=YOUR_SERVER\\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-```
-
-### **📁 CMS Settings** (`CMS.WebApi/appsettings.json`)
-```json
-{
-  "FileStorage": {
-    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // Permanent document storage
-  }
-}
-```
-
-### **🎯 TMS Settings** (`TMS.WebApi/appsettings.json`)
-```json
-{
-  "FileStorage": {
-    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // For internal CMS services
-  },
-  "TMS": {
-    "DocumentRetentionHours": 0.25,        // 15 minutes for generated files
-    "CleanupIntervalMinutes": 5,           // Cleanup every 5 minutes
-    "MaxFileSizeMB": 100,                  // 100MB file limit
-    "AllowedFileTypes": [".docx", ".xlsx", ".pptx"],
-    "LibreOfficeTimeout": 30000,           // 30 seconds
-    "SharedStoragePath": "C:\\ManteqStorage_Shared\\TmsGenerated",  // Generated docs
-    "TempUploadPath": "C:\\ManteqStorage_Shared\\TmsTemp"           // Working directory
-  }
-}
-```
-
-### **📧 Email Service Settings** (`EmailService.WebApi/appsettings.json`)
-```json
-{
-  "EmailSettings": {
-    "DefaultFromEmail": "noreply@manteq-me.com",
-    "DefaultFromName": "Manteq System"
-  }
-}
-```
-
-### **🧹 Auto-Cleanup Behavior**
-- **Templates**: ❌ **NEVER** cleaned up - stored permanently in CmsDocuments
-- **Generated Documents**: ✅ **Auto-cleanup** every 5 minutes - removed after 15 minutes
-- **Temp Files**: ✅ **Immediate cleanup** after processing
-
-## 🗂️ Project Structure
-
-```
-Manteq-doc-system/
-├── 📄 ManteqDocumentSystem.sln    # Main solution (CMS + TMS + Email)
-├── 📄 README.md                   # This file (system overview)
-├── 📄 TEAM_GUIDE.md               # 🆕 Comprehensive developer guide
-├── 📄 LICENSE.txt
-├── 
-├── 📁 CMS.WebApi/                 # Content Management System (Port 5000)
-│   ├── Controllers/               # REST API endpoints
-│   ├── Data/                      # Entity Framework DbContext
-│   ├── Models/                    # Document models and DTOs
-│   ├── Services/                  # File storage and business logic
-│   ├── appsettings.json          # Database and storage configuration
-│   └── README.md                  # CMS-specific documentation
-├── 
-├── 📁 TMS.WebApi/                 # Template Management System (Port 5267)
-│   ├── TMS.WebApi.sln            # TMS solution with CMS dependency
-│   ├── Controllers/               # Template processing endpoints
-│   ├── Services/                  # Document generation and embedding
-│   ├── Models/                    # Template models and requests
-│   ├── Infrastructure/            # Controller filtering for CMS
-│   ├── appsettings.json          # TMS and storage configuration  
-│   └── README.md                  # TMS-specific documentation
-├── 
-└── 📁 EmailService.WebApi/        # Email Service (Port 5030)
-    ├── EmailService.WebApi.sln    # Email solution with TMS+CMS dependencies
-    ├── Controllers/               # Email sending endpoints
-    ├── Services/                  # TMS/CMS integration services
-    ├── Models/                    # Email models and requests
-    ├── appsettings.json          # Email configuration
-    └── README.md                  # Email service documentation
-```
-
-### **🗄️ Database Schema**
-```sql
-CmsDatabase_Dev
-├── Documents (CMS)               # All documents and templates
-│   ├── Id (PK)                   # Document identifier
-│   ├── FileName                  # Original file name
-│   ├── FilePath                  # Storage location
-│   ├── Description               # User description
-│   └── CreatedAt                 # Upload timestamp
-└── Templates (TMS)               # Template metadata
-    ├── Id (PK)                   # Template identifier  
-    ├── CmsDocumentId (FK)        # References Documents.Id
-    ├── Name                      # Template name
-    ├── Description               # Template description
-    └── CreatedAt                 # Registration timestamp
-```
-
-### **📁 File Storage Layout**
-```
-C:\ManteqStorage_Shared\
-├── CmsDocuments\                 # 📁 PERMANENT storage (CMS + TMS templates)
-│   ├── email-doc-test_xyz.docx   # Direct CMS uploads
-│   └── Template_abc123.docx      # TMS registered templates
-├── TmsGenerated\                 # 🎯 TEMPORARY storage (15min retention)
-│   ├── generated_xyz.html        # EmailHtml output
-│   └── generated_abc.pdf         # PDF conversions
-├── TmsTemp\                      # 🔄 WORKING directory (immediate cleanup)
-│   └── temp_processing_files     # During generation only
-└── EmailAttachments\             # 📧 EMAIL storage (future use)
-    └── attachment_files          # Email service files
-```
+---
 
 ## 🧪 Testing the System
 
-### **🔍 Health Checks**
-```powershell
-# Verify all services are running
-curl http://localhost:5000/api/documents/health   # CMS
-curl http://localhost:5267/api/templates/health   # TMS  
-curl http://localhost:5030/api/email/health       # Email Service
+### **Health Checks**
 
-# All should return: {"status": "healthy", "service": "ServiceName"}
+```bash
+# Check all services
+curl http://localhost:5000/health  # CMS
+curl http://localhost:5267/health  # TMS
+curl http://localhost:5030/health  # Email
+
+# Expected: All return {"status": "healthy"}
 ```
 
-### **📋 Complete Workflow Test**
-```powershell
-# Step 1: Register a template (TMS → CMS internally)
-curl -X POST "http://localhost:5267/api/templates/register" `
-     -F "file=@Email_Template.docx" `
-     -F "name=Test Template" `
-     -F "description=Test template for workflow"
+### **Integration Test**
 
-# Step 2: Generate document
-curl -X POST "http://localhost:5267/api/templates/generate" `
-     -H "Content-Type: application/json" `
-     -d '{"templateId":"your-template-id","propertyValues":{"CustomerName":"Test User"},"exportFormat":"EmailHtml"}'
+```bash
+# 1. Upload document to CMS
+curl -X POST http://localhost:5000/api/documents/register \
+  -F "name=Test Document" \
+  -F "Content=@test.pdf"
 
-# Step 3: Send email with generated content
-curl -X POST "http://localhost:5030/api/email/send-generated-document" `
-     -H "Content-Type: application/json" `
-     -d '{"to":["test@example.com"],"subject":"Test Email","templateId":"your-template-id","propertyValues":{"CustomerName":"Test User"}}'
+# 2. Register template in TMS
+curl -X POST http://localhost:5267/api/templates/register \
+  -F "name=Test Template" \
+  -F "TemplateFile=@template.docx"
+
+# 3. Send email via Email Service
+curl -X POST http://localhost:5030/api/email/send-with-template \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
 ```
-
-### **🌐 Swagger UI Access**
-- **CMS**: http://localhost:5000/swagger
-- **TMS**: http://localhost:5267/swagger  
-- **Email**: http://localhost:5030/swagger
-
-## 🚀 Deployment and Scaling
-
-### **Development Environment**
-```powershell
-# Run all services locally
-dotnet run --project CMS.WebApi
-dotnet run --project TMS.WebApi  
-dotnet run --project EmailService.WebApi
-```
-
-### **Production Build**
-```powershell
-# Build optimized releases
-dotnet publish CMS.WebApi -c Release -o ./publish/cms
-dotnet publish TMS.WebApi -c Release -o ./publish/tms  
-dotnet publish EmailService.WebApi -c Release -o ./publish/email
-```
-
-### **⚡ Performance Features**
-- 🧹 **Auto-cleanup**: Generated files removed every 15 minutes
-- 💾 **Memory efficient**: Shared storage with minimal memory footprint  
-- 🔄 **Async processing**: Non-blocking document generation and email sending
-- ⚖️ **Load balancing ready**: Stateless services can scale horizontally
-- 📊 **Configurable timeouts**: LibreOffice process management and cleanup
-
-### **🔧 Production Considerations**
-- **Database**: Upgrade to SQL Server Standard/Enterprise for production
-- **Storage**: Consider Azure Blob Storage or NAS for shared file storage  
-- **Monitoring**: Implement health checks and performance monitoring
-- **Security**: Add authentication, authorization, and HTTPS certificates
-- **Backup**: Regular database and file storage backups
-
-## 📈 Performance Features
-
-- ⚡ **Auto-cleanup**: Generated files removed every minute
-- 💾 **Memory efficient**: Temporary file management
-- 🔄 **Async processing**: Non-blocking operations
-- 📊 **Configurable timeouts**: LibreOffice process management
-
-## 🛠️ Integration
-
-### **Use TMS as Service**
-```csharp
-// In your project
-services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
-services.AddScoped<ITemplateService, TemplateService>();
-```
-
-### **CMS Integration**
-TMS uses CMS services internally for document storage while exposing only TMS-specific endpoints.
-
-## ❌ Troubleshooting
-
-### **🔌 Service Connection Issues**
-```powershell
-# Check if services are running
-netstat -ano | findstr ":5000"    # CMS
-netstat -ano | findstr ":5267"    # TMS
-netstat -ano | findstr ":5030"    # Email Service
-
-# Kill processes if needed
-taskkill /PID <process-id> /F
-```
-
-### **🗄️ Database Connection Problems**
-```sql
--- Verify SQL Server is running
-SELECT @@VERSION
-
--- Check database exists
-USE master
-SELECT name FROM sys.databases WHERE name = 'CmsDatabase_Dev'
-
--- If database is missing, it will be created automatically on first startup
-```
-
-### **📁 File Storage Issues**
-```powershell
-# Verify storage directories exist and have correct permissions
-Test-Path "C:\ManteqStorage_Shared\CmsDocuments"
-Test-Path "C:\ManteqStorage_Shared\TmsGenerated"
-Get-Acl "C:\ManteqStorage_Shared"
-
-# Recreate if missing
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
-```
-
-### **⚙️ LibreOffice Issues (TMS)**
-```powershell
-# Check LibreOffice installation
-Test-Path "C:\Program Files\LibreOffice\program\soffice.exe"
-Test-Path "C:\Program Files (x86)\LibreOffice\program\soffice.exe"
-
-# Download from: https://www.libreoffice.org/download/download/
-```
-
-### **🔍 Common Error Messages**
-- **"Instance failure"** → SQL Server not running or wrong connection string
-- **"Directory not found"** → Run storage setup commands above
-- **"Template not found"** → Template ID invalid or cleanup removed generated file
-- **"LibreOffice timeout"** → LibreOffice not installed or process hanging
-
-## � Additional Resources
-
-### **📖 Documentation**
-- 📄 **[TEAM_GUIDE.md](TEAM_GUIDE.md)** - Comprehensive developer guide with workflows and examples
-- 📁 **[CMS README](CMS.WebApi/README.md)** - Content Management System documentation
-- 🎯 **[TMS README](TMS.WebApi/README.md)** - Template Management System documentation  
-- 📧 **[Email Service README](EmailService.WebApi/README.md)** - Email Service documentation
-
-### **🌐 API Documentation**
-- **CMS Swagger**: http://localhost:5000/swagger
-- **TMS Swagger**: http://localhost:5267/swagger
-- **Email Swagger**: http://localhost:5030/swagger
-
-### **🛠️ Development Tools**
-- **Visual Studio Code** with C# extension
-- **Postman** or **curl** for API testing
-- **SQL Server Management Studio** for database management
-- **LibreOffice** for document conversion testing
 
 ---
 
-## 📞 Support
+## 📊 Monitoring & Observability
 
-- **👨‍💻 Lead Developer**: Saleh Shalab
-- **📧 Email**: salehshalab2@gmail.com  
-- **🌐 Repository**: https://github.com/SalehShalab87/Manteq-doc-system
-- **🐛 Issues**: Use GitHub Issues for bug reports and feature requests
+### **Health Endpoints**
+
+```bash
+# Service Health
+GET http://localhost:5000/health
+GET http://localhost:5267/health
+GET http://localhost:5030/health
+
+# CMS Analytics
+GET http://localhost:5000/api/email-templates/{id}/analytics
+GET http://localhost:5000/api/documents/types
+
+# TMS Analytics
+GET http://localhost:5267/api/templates/{id}/analytics
+```
+
+### **Docker Logs**
+
+```bash
+# View logs
+docker-compose logs -f cms-api
+docker-compose logs -f tms-api
+docker-compose logs -f email-service
+
+# Check specific service
+docker logs manteq-cms-api
+```
 
 ---
 
-## 🎉 Status: Production Ready
+## 🔒 Security Best Practices
 
-✅ **All services fully tested and operational**  
-✅ **Shared storage architecture implemented**  
-✅ **Database schema stable and optimized**  
-✅ **Error handling and logging comprehensive**  
-✅ **API documentation complete**  
-✅ **Auto-cleanup and performance optimized**
+### **Configuration Management**
 
-**The Manteq Document System is ready for production deployment and provides a complete document automation solution with professional-grade template processing, multiple export formats, email automation, and seamless microservice integration.**
+✅ **DO**:
+- Use environment variables for sensitive data
+- Use Docker secrets in production
+- Store SMTP app passwords (never regular passwords)
+- Use `.env` files (add to `.gitignore`)
 
-🚀 **Happy document processing!**
+❌ **DON'T**:
+- Commit credentials to Git
+- Use regular email passwords
+- Hardcode connection strings
+
+### **Authentication Headers**
+
+```http
+X-SME-UserId: user@example.com
+```
+
+Used for:
+- Audit logging
+- Created by / Updated by fields
+- Soft delete tracking
+
+---
+
+## 📈 Production Deployment
+
+### **Scaling Strategy**
+
+| Service | Scaling | Database | Considerations |
+|---------|---------|----------|----------------|
+| **CMS** | Vertical | ✅ Shared | Single instance (data gateway) |
+| **TMS** | Horizontal | ❌ Stateless | Multiple instances (CPU bound) |
+| **Email** | Horizontal | ❌ Stateless | Multiple instances (I/O bound) |
+
+### **Resource Requirements**
+
+**Minimum**:
+- CPU: 2 cores per service
+- RAM: 2GB per service
+- Storage: 20GB for documents
+- PostgreSQL: 10GB database
+
+**Recommended**:
+- CPU: 4 cores per service
+- RAM: 4GB per service
+- Storage: 100GB+ for documents
+- PostgreSQL: 50GB database
+
+---
+
+## 📞 Support & Resources
+
+### **Documentation**
+
+- 📁 [CMS API Documentation](CMS.Webapi/README.md)
+- 🎯 [TMS API Documentation](TMS.WebApi/README.md)
+- 📧 [Email Service Documentation](EmailService.WebApi/README.md)
+
+### **API Documentation**
+
+- CMS Swagger: `http://localhost:5000/swagger`
+- TMS Swagger: `http://localhost:5267/swagger`
+- Email Swagger: `http://localhost:5030/swagger`
+
+### **Contact**
+
+- **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **Lead Developer**: Saleh Shalab
+- **Email**: salehshalab2@gmail.com
+- **Issues**: [GitHub Issues](https://github.com/SalehShalab87/Manteq-doc-system/issues)
+
+---
+
+## ✅ Production Ready Status
+
+🎉 **All services are fully operational and production-ready!**
+
+### **✅ CMS (Data Gateway)**
+- PostgreSQL database with Entity Framework
+- Document & template management
+- Email template system
+- Soft delete/trash functionality
+- Analytics tracking
+
+### **✅ TMS (Document Generator)**
+- Stateless HTTP client architecture
+- LibreOffice integration for conversions
+- OpenXML document manipulation
+- Auto-cleanup system (15min retention)
+- Excel workflow support
+
+### **✅ Email Service (Orchestrator)**
+- MailKit email sending
+- TMS & CMS integration via HTTP
+- Polly resilience patterns
+- Multi-account SMTP support
+- Template-based automation
+
+### **✅ Infrastructure**
+- Docker Compose orchestration
+- Health checks on all services
+- Volume management for persistence
+- Network isolation
+- Environment-based configuration
+
+---
+
+## 🚀 Next Steps
+
+1. **Review Service Documentation**: Read individual service READMEs
+2. **Start with Docker Compose**: Easiest way to get started
+3. **Test Workflows**: Try the complete workflow example
+4. **Configure SMTP**: Set up email account for Email Service
+5. **Review API Documentation**: Explore Swagger endpoints
+6. **Deploy to Production**: Follow scaling strategy guidelines
+
+---
+
+**🎊 The Manteq Document System is a production-ready microservices platform that transforms documents, processes templates, and automates emails with professional quality!**

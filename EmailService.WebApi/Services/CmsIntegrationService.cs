@@ -1,4 +1,4 @@
-using CMS.WebApi.Services;
+using EmailService.WebApi.HttpClients;
 
 namespace EmailService.WebApi.Services
 {
@@ -22,16 +22,16 @@ namespace EmailService.WebApi.Services
     }
 
     /// <summary>
-    /// Implementation of CMS integration service
+    /// Implementation of CMS integration service using HTTP client
     /// </summary>
     public class CmsIntegrationService : ICmsIntegrationService
     {
-        private readonly IDocumentService _documentService;
+        private readonly ICmsApiClient _cmsApiClient;
         private readonly ILogger<CmsIntegrationService> _logger;
 
-        public CmsIntegrationService(IDocumentService documentService, ILogger<CmsIntegrationService> logger)
+        public CmsIntegrationService(ICmsApiClient cmsApiClient, ILogger<CmsIntegrationService> logger)
         {
-            _documentService = documentService;
+            _cmsApiClient = cmsApiClient;
             _logger = logger;
         }
 
@@ -39,21 +39,20 @@ namespace EmailService.WebApi.Services
         {
             _logger.LogInformation("Retrieving document from CMS: {DocumentId}", documentId);
 
-            var cmsDoc = await _documentService.RetrieveDocumentAsync(documentId);
+            var cmsDoc = await _cmsApiClient.GetDocumentAsync(documentId);
             if (cmsDoc == null)
             {
                 _logger.LogWarning("Document not found in CMS: {DocumentId}", documentId);
                 return null;
             }
 
-            // Get the file path and read the content
-            var filePath = await _documentService.GetDocumentFilePathAsync(documentId);
-            var fileContent = await File.ReadAllBytesAsync(filePath);
+            // Get the file content via HTTP
+            var fileContent = await _cmsApiClient.DownloadDocumentAsync(documentId);
 
             _logger.LogInformation("Successfully retrieved CMS document: {FileName}, Size: {Size} bytes", cmsDoc.Name, fileContent.Length);
 
             // Construct proper filename with extension
-            var fileName = GetFileNameWithExtension(cmsDoc.Name, cmsDoc.Type, filePath);
+            var fileName = GetFileNameWithExtension(cmsDoc.Name, cmsDoc.Type);
 
             return new CmsDocument
             {
@@ -64,19 +63,12 @@ namespace EmailService.WebApi.Services
             };
         }
 
-        private static string GetFileNameWithExtension(string name, string type, string filePath)
+        private static string GetFileNameWithExtension(string name, string type)
         {
             // If name already has an extension, use it as-is
             if (Path.HasExtension(name))
             {
                 return name;
-            }
-
-            // Try to get extension from the file path
-            var extensionFromPath = Path.GetExtension(filePath);
-            if (!string.IsNullOrEmpty(extensionFromPath))
-            {
-                return name + extensionFromPath;
             }
 
             // Fallback: map document type to extension

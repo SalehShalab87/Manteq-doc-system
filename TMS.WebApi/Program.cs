@@ -1,10 +1,10 @@
-using CMS.WebApi.Data;
-using CMS.WebApi.Services;
 using TMS.WebApi.Services;
 using TMS.WebApi.Infrastructure;
 using TMS.WebApi.Models;
-using Microsoft.EntityFrameworkCore;
+using TMS.WebApi.HttpClients;
 using System.Text.Json.Serialization;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,37 +22,17 @@ if (File.Exists(".env"))
     }
 }
 
-// Build database connection string from environment variables
-var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
-var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
-var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
+// Get CMS API configuration
+var cmsApiBaseUrl = Environment.GetEnvironmentVariable("CMS_BASE_URL") 
+    ?? builder.Configuration["CmsApi:BaseUrl"] 
+    ?? "http://localhost:5000";
 
-// For local SQL Server Express, use named pipes for better reliability
-string connectionString;
-if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbServer.Contains(Environment.MachineName)))
-{
-    connectionString = $"Data Source=np:\\\\.\\pipe\\MSSQL$SQLEXPRESS\\sql\\query;Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 TMS using named pipes connection for local SQLEXPRESS");
-}
-else
-{
-    // Check if we should use SQL Authentication or Windows Authentication
-    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 TMS using SQL Authentication for server: {dbServer}");
-    }
-    else
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 TMS using Integrated Security for server: {dbServer}");
-    }
-}
+var cmsApiTimeout = int.TryParse(
+    Environment.GetEnvironmentVariable("CMS_API_TIMEOUT") ?? builder.Configuration["CmsApi:Timeout"],
+    out var timeout) ? timeout : 30;
 
-Console.WriteLine($"📄 TMS Database: {dbDatabase}");
+Console.WriteLine($"🔗 TMS will connect to CMS API: {cmsApiBaseUrl}");
+Console.WriteLine($"⏱️  CMS API timeout: {cmsApiTimeout} seconds");
 
 // Configure TMS Settings
 builder.Services.Configure<TmsSettings>(builder.Configuration.GetSection("TMS"));
@@ -76,19 +56,35 @@ builder.Services.AddControllers(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-// Configure Entity Framework for CMS
-builder.Services.AddDbContext<CmsDbContext>(options =>
+// Configure HTTP Client for CMS API with Polly resilience policies
+builder.Services.AddHttpClient<ICmsApiClient, CmsApiClient>(client =>
 {
-    // Use connection string built from environment variables
-    options.UseSqlServer(connectionString);
-});
+    client.BaseAddress = new Uri(cmsApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(cmsApiTimeout);
+    client.DefaultRequestHeaders.Add("User-Agent", "TMS-API/1.0");
+})
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(3, retryAttempt => 
+        TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+        onRetry: (outcome, timespan, retryCount, context) =>
+        {
+            Console.WriteLine($"⚠️ TMS → CMS API retry {retryCount} after {timespan.TotalSeconds}s");
+        }))
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30),
+        onBreak: (outcome, duration) =>
+        {
+            Console.WriteLine($"❌ TMS → CMS API circuit breaker opened for {duration.TotalSeconds}s");
+        },
+        onReset: () =>
+        {
+            Console.WriteLine($"✅ TMS → CMS API circuit breaker reset");
+        }));
 
-// Add HttpContextAccessor (required by DocumentService for X-SME-UserId header)
+// Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
-
-// Register CMS Services (used internally by TMS - no CMS endpoints are exposed)
-builder.Services.AddScoped<IDocumentService, DocumentService>();
-builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
 
 // Register TMS Services (these power the exposed TMS API endpoints)
 builder.Services.AddScoped<ITemplateService, TemplateService>();
@@ -191,21 +187,6 @@ app.MapGet("/", () => Results.Ok(new
 }));
 
 app.MapControllers();
-
-// Ensure database is created
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<CmsDbContext>();
-    try
-    {
-        context.Database.EnsureCreated();
-        app.Logger.LogInformation("Database initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Error initializing database");
-    }
-}
 
 app.Logger.LogInformation("🚀 Template Management System (TMS) API is starting...");
 app.Logger.LogInformation("📋 Available endpoints:");

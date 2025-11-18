@@ -1,9 +1,10 @@
 # TMS Web API Dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 
-# Install LibreOffice for document conversion
+# Install LibreOffice for document conversion and curl for healthchecks
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    curl \
     libreoffice \
     libreoffice-writer \
     libreoffice-calc \
@@ -25,10 +26,9 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY ["ManteqDocumentSystem.sln", "./"]
-COPY ["CMS.Webapi/CMS.WebApi.csproj", "CMS.Webapi/"]
 COPY ["TMS.WebApi/TMS.WebApi.csproj", "TMS.WebApi/"]
 
-# Restore both projects (TMS depends on CMS)
+# Restore TMS project (no CMS dependency)
 RUN dotnet restore "TMS.WebApi/TMS.WebApi.csproj"
 
 # Copy all source code

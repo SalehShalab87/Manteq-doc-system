@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using EmailService.WebApi.Models;
-using CMS.WebApi.Services;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -34,16 +33,14 @@ namespace EmailService.WebApi.Services
         private readonly ILogger<EmailSendingService> _logger;
         private readonly ITmsIntegrationService _tmsService;
         private readonly ICmsIntegrationService _cmsService;
-        private readonly CMS.WebApi.Services.IEmailTemplateService _emailTemplateService;
-        private readonly CMS.WebApi.Services.IEmailTemplateFileService _fileService;
+        private readonly IEmailTemplateService _emailTemplateService;
 
         public EmailSendingService(
             IConfiguration configuration,
             ILogger<EmailSendingService> logger,
             ITmsIntegrationService tmsService,
             ICmsIntegrationService cmsService,
-            CMS.WebApi.Services.IEmailTemplateService emailTemplateService,
-            CMS.WebApi.Services.IEmailTemplateFileService fileService)
+            IEmailTemplateService emailTemplateService)
         {
             _emailConfig = configuration.GetSection("Email").Get<EmailConfiguration>() ?? new EmailConfiguration();
             _smtpConfig = new SmtpConfiguration
@@ -58,7 +55,6 @@ namespace EmailService.WebApi.Services
             _tmsService = tmsService;
             _cmsService = cmsService;
             _emailTemplateService = emailTemplateService;
-            _fileService = fileService;
         }
 
 
@@ -365,9 +361,6 @@ namespace EmailService.WebApi.Services
             }
         }
 
-        /// <summary>
-        /// Test email template with full support for all body types and attachments
-        /// </summary>
         public async Task<EmailSendResponse> TestEmailTemplateAsync(TestEmailTemplateRequest request)
         {
             var emailId = Guid.NewGuid();
@@ -375,8 +368,8 @@ namespace EmailService.WebApi.Services
 
             try
             {
-                // Get the email template from local database
-                var template = await _emailTemplateService.GetEmailTemplateByIdAsync(request.TemplateId);
+                // Get the email template from CMS API
+                var template = await _emailTemplateService.GetEmailTemplateAsync(request.TemplateId);
                 if (template == null)
                 {
                     throw new ArgumentException($"Email template not found: {request.TemplateId}");
@@ -420,12 +413,12 @@ namespace EmailService.WebApi.Services
                 // Handle body based on BodySourceType
                 switch (template.BodySourceType)
                 {
-                    case CMS.WebApi.Models.EmailBodySourceType.PlainText:
+                    case EmailBodySourceType.PlainText:
                         builder.TextBody = template.PlainTextContent;
                         builder.HtmlBody = $"<pre>{System.Net.WebUtility.HtmlEncode(template.PlainTextContent)}</pre>";
                         break;
 
-                    case CMS.WebApi.Models.EmailBodySourceType.TmsTemplate:
+                    case EmailBodySourceType.TmsTemplate:
                         if (template.TmsTemplateId == null)
                         {
                             throw new ArgumentException("TMS template ID is required for TmsTemplate body source");
@@ -439,20 +432,20 @@ namespace EmailService.WebApi.Services
                         var bodyDoc = await _tmsService.GenerateDocumentAsync(
                             template.TmsTemplateId.Value,
                             request.TmsBodyPropertyValues,
-                            TmsExportFormat.EmailHtml);
+                            Models.TmsExportFormat.EmailHtml);
 
                         builder.HtmlBody = System.Text.Encoding.UTF8.GetString(bodyDoc.FileContent);
                         break;
 
-                    case CMS.WebApi.Models.EmailBodySourceType.CustomTemplate:
+                    case EmailBodySourceType.CustomTemplate:
                         if (string.IsNullOrEmpty(template.CustomTemplateFilePath))
                         {
                             throw new ArgumentException("Custom template file path is required for CustomTemplate body source");
                         }
 
-                        // Read custom template file
-                        var customHtmlBytes = await _fileService.GetCustomTemplateAsync(template.Id);
-                        builder.HtmlBody = System.Text.Encoding.UTF8.GetString(customHtmlBytes);
+                        // Read custom template file from CMS API
+                        var customHtml = await _emailTemplateService.GetCustomTemplateContentAsync(template.Id);
+                        builder.HtmlBody = customHtml;
                         break;
 
                     default:
@@ -460,7 +453,7 @@ namespace EmailService.WebApi.Services
                 }
 
                 // Handle attachments from template's default attachments
-                var attachments = template.Attachments ?? new List<CMS.WebApi.Models.EmailTemplateAttachmentResponse>();
+                var attachments = template.Attachments ?? new List<EmailTemplateAttachmentDto>();
                 int attachmentIndex = 0;
 
                 foreach (var attachment in attachments)
@@ -469,7 +462,7 @@ namespace EmailService.WebApi.Services
                     {
                         switch (attachment.SourceType)
                         {
-                            case CMS.WebApi.Models.AttachmentSourceType.CmsDocument:
+                            case AttachmentSourceType.CmsDocument:
                                 if (attachment.CmsDocumentId.HasValue)
                                 {
                                     var doc = await _cmsService.GetDocumentAsync(attachment.CmsDocumentId.Value);
@@ -480,7 +473,7 @@ namespace EmailService.WebApi.Services
                                 }
                                 break;
 
-                            case CMS.WebApi.Models.AttachmentSourceType.TmsTemplate:
+                            case AttachmentSourceType.TmsTemplate:
                                 if (attachment.TmsTemplateId.HasValue)
                                 {
                                     if (request.TmsAttachmentPropertyValues == null || 
@@ -489,9 +482,7 @@ namespace EmailService.WebApi.Services
                                         throw new ArgumentException($"TmsAttachmentPropertyValues are required for TMS attachment at index {attachmentIndex}");
                                     }
 
-                                    var exportFormat = attachment.TmsExportFormat.HasValue 
-                                        ? (TmsExportFormat)attachment.TmsExportFormat.Value 
-                                        : TmsExportFormat.Pdf;
+                                    var exportFormat = attachment.TmsExportFormat ?? Models.TmsExportFormat.Pdf;
                                     var tmsDoc = await _tmsService.GenerateDocumentAsync(
                                         attachment.TmsTemplateId.Value,
                                         request.TmsAttachmentPropertyValues[attachmentIndex],
@@ -499,9 +490,9 @@ namespace EmailService.WebApi.Services
 
                                     var extension = exportFormat switch
                                     {
-                                        TmsExportFormat.Pdf => "pdf",
-                                        TmsExportFormat.Word => "docx",
-                                        TmsExportFormat.Html => "html",
+                                        Models.TmsExportFormat.Pdf => "pdf",
+                                        Models.TmsExportFormat.Word => "docx",
+                                        Models.TmsExportFormat.Html => "html",
                                         _ => "pdf"
                                     };
 
@@ -509,11 +500,11 @@ namespace EmailService.WebApi.Services
                                 }
                                 break;
 
-                            case CMS.WebApi.Models.AttachmentSourceType.CustomFile:
+                            case AttachmentSourceType.CustomFile:
                                 if (!string.IsNullOrEmpty(attachment.CustomFilePath))
                                 {
-                                    var (fileBytes, fileName, contentType) = await _fileService.GetCustomAttachmentAsync(template.Id, attachmentIndex);
-                                    builder.Attachments.Add(attachment.CustomFileName ?? fileName, fileBytes);
+                                    var fileBytes = await _emailTemplateService.GetCustomAttachmentAsync(template.Id, attachmentIndex);
+                                    builder.Attachments.Add(attachment.CustomFileName ?? $"attachment{attachmentIndex}", fileBytes);
                                 }
                                 break;
                         }

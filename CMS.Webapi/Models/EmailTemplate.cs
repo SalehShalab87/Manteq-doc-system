@@ -10,17 +10,17 @@ namespace CMS.WebApi.Models
         /// <summary>
         /// Plain text only (no HTML formatting)
         /// </summary>
-        PlainText = 1,
+        PlainText = 0,
         
         /// <summary>
         /// Generated from a TMS template (EmailHtml format)
         /// </summary>
-        TmsTemplate = 2,
+        TmsTemplate = 1,
         
         /// <summary>
         /// Custom uploaded HTML/XHTML template file
         /// </summary>
-        CustomTemplate = 3
+        CustomTemplate = 2
     }
 
     /// <summary>

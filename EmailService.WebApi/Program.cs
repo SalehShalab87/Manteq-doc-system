@@ -1,59 +1,16 @@
 using EmailService.WebApi.Services;
 using EmailService.WebApi.Models;
 using EmailService.WebApi.Infrastructure;
-using CMS.WebApi.Data;
-using CMS.WebApi.Services;
-using TMS.WebApi.Services;
-using Microsoft.EntityFrameworkCore;
+using EmailService.WebApi.HttpClients;
 using System.Text.Json.Serialization;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Load environment variables from .env file if exists
-if (File.Exists(".env"))
-{
-    foreach (var line in File.ReadAllLines(".env"))
-    {
-        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#')) continue;
-        var parts = line.Split('=', 2);
-        if (parts.Length == 2)
-        {
-            Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
-        }
-    }
-}
-
-// Build database connection string from environment variables
-var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
-var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
-var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
-
-// For local SQL Server Express, use named pipes for better reliability
-string connectionString;
-if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbServer.Contains(Environment.MachineName)))
-{
-    connectionString = $"Data Source=np:\\\\.\\pipe\\MSSQL$SQLEXPRESS\\sql\\query;Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 EmailService using named pipes connection for local SQLEXPRESS");
-}
-else
-{
-    // Check if we should use SQL Authentication or Windows Authentication
-    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 TMS using SQL Authentication for server: {dbServer}");
-    }
-    else
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 TMS using Integrated Security for server: {dbServer}");
-    }
-}
-
-Console.WriteLine($"📧 EmailService Database: {dbDatabase}");
+// ⚠️ EmailService is now stateless - NO database access
+// All data operations go through HTTP APIs (CMS and TMS)
+Console.WriteLine($"📧 EmailService (Stateless) - Using HTTP APIs for CMS and TMS");
 
 // Add services to the container.
 
@@ -67,52 +24,80 @@ builder.Services.AddControllers(options =>
 // Add custom application model provider for additional filtering
 builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.ApplicationModels.IApplicationModelProvider, EmailServiceApplicationModelProvider>();
 
-// Configure Entity Framework for CMS (shared database)
-builder.Services.AddDbContext<CmsDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// ⚠️ NO Entity Framework - EmailService is stateless
 
 // Add HttpContextAccessor for header reading
 builder.Services.AddHttpContextAccessor();
 
-// Add HttpClient for CMS API integration
+// Get API configuration from environment variables or appsettings
+var cmsApiBaseUrl = Environment.GetEnvironmentVariable("CMS_BASE_URL") 
+                   ?? builder.Configuration["CmsApi:BaseUrl"] 
+                   ?? "http://localhost:5000";
+var cmsApiTimeout = int.Parse(builder.Configuration["CmsApi:Timeout"] ?? "30");
+
+var tmsApiBaseUrl = Environment.GetEnvironmentVariable("TMS_BASE_URL") 
+                   ?? builder.Configuration["TmsApi:BaseUrl"] 
+                   ?? "http://localhost:5267";
+var tmsApiTimeout = int.Parse(builder.Configuration["TmsApi:Timeout"] ?? "60");
+
+Console.WriteLine($"🔗 CMS API: {cmsApiBaseUrl} (Timeout: {cmsApiTimeout}s)");
+Console.WriteLine($"🔗 TMS API: {tmsApiBaseUrl} (Timeout: {tmsApiTimeout}s)");
+
+// Polly retry policy: 3 retries with exponential backoff
+var retryPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+        onRetry: (outcome, timespan, retryCount, context) =>
+        {
+            Console.WriteLine($"⚠️ Retry {retryCount} after {timespan.TotalSeconds}s due to: {outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString()}");
+        });
+
+// Polly circuit breaker: Open circuit after 5 consecutive failures, keep open for 30 seconds
+var circuitBreakerPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30),
+        onBreak: (outcome, duration) =>
+        {
+            Console.WriteLine($"🔴 Circuit breaker opened for {duration.TotalSeconds}s due to: {outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString()}");
+        },
+        onReset: () =>
+        {
+            Console.WriteLine($"🟢 Circuit breaker reset");
+        });
+
+// Register typed HTTP client for CMS API with Polly resilience
+builder.Services.AddHttpClient<ICmsApiClient, CmsApiClient>(client =>
+{
+    client.BaseAddress = new Uri(cmsApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(cmsApiTimeout);
+})
+.AddPolicyHandler(retryPolicy)
+.AddPolicyHandler(circuitBreakerPolicy);
+
+// Register named HttpClient for EmailTemplateIntegrationService
 builder.Services.AddHttpClient("CmsApi", client =>
 {
-    var cmsApiUrl = Environment.GetEnvironmentVariable("CMS_BASE_URL") 
-                    ?? builder.Configuration["CmsApi:BaseUrl"] 
-                    ?? "http://localhost:5000";
-    client.BaseAddress = new Uri(cmsApiUrl);
-    client.Timeout = TimeSpan.FromSeconds(30);
-    Console.WriteLine($"🔗 CMS API URL configured: {cmsApiUrl}");
-});
+    client.BaseAddress = new Uri(cmsApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(cmsApiTimeout);
+})
+.AddPolicyHandler(retryPolicy)
+.AddPolicyHandler(circuitBreakerPolicy);
 
-// Add HttpClient for TMS API integration
-builder.Services.AddHttpClient("TmsApi", client =>
+// Register typed HTTP client for TMS API with Polly resilience
+builder.Services.AddHttpClient<ITmsApiClient, TmsApiClient>(client =>
 {
-    var tmsApiUrl = Environment.GetEnvironmentVariable("TMS_BASE_URL") 
-                    ?? builder.Configuration["TmsApi:BaseUrl"] 
-                    ?? "http://localhost:5267";
-    client.BaseAddress = new Uri(tmsApiUrl);
-    client.Timeout = TimeSpan.FromSeconds(60);
-    Console.WriteLine($"🔗 TMS API URL configured: {tmsApiUrl}");
-});
+    client.BaseAddress = new Uri(tmsApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(tmsApiTimeout);
+})
+.AddPolicyHandler(retryPolicy)
+.AddPolicyHandler(circuitBreakerPolicy);
 
-// Register CMS Services (used internally by Email Service and by EmailTemplatesController)
-builder.Services.AddScoped<CMS.WebApi.Services.IDocumentService, DocumentService>();
-builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
-builder.Services.AddScoped<CMS.WebApi.Services.IEmailTemplateService, CMS.WebApi.Services.EmailTemplateService>();
-builder.Services.AddScoped<IEmailTemplateFileService, EmailTemplateFileService>();
+// ⚠️ Removed all CMS/TMS service registrations - using HTTP APIs instead
 
-// Register Email Service integration layer for CMS (used by EmailSendingService)
-builder.Services.AddScoped<EmailService.WebApi.Services.IEmailTemplateService, EmailTemplateIntegrationService>();
-
-// Register TMS Services (used internally by Email Service)
-builder.Services.AddScoped<ITemplateService, TMS.WebApi.Services.TemplateService>();
-builder.Services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
-builder.Services.AddScoped<IDocumentEmbeddingService, DocumentEmbeddingService>();
-
-// Register Email Service integration services
+// Register Email Service integration services (they will use HTTP clients)
 builder.Services.AddScoped<ICmsIntegrationService, CmsIntegrationService>();
 builder.Services.AddScoped<ITmsIntegrationService, TmsIntegrationService>();
+builder.Services.AddScoped<EmailService.WebApi.Services.IEmailTemplateService, EmailTemplateIntegrationService>();
 
 // Register Email Service main service
 builder.Services.AddScoped<IEmailSendingService, EmailSendingService>();
@@ -223,20 +208,7 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapControllers();
 
-// Ensure database is created
-using (var scope = app.Services.CreateScope())
-{
-    try
-    {
-        var context = scope.ServiceProvider.GetRequiredService<CmsDbContext>();
-        await context.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Database initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Error initializing database");
-    }
-}
+// ⚠️ No database initialization - EmailService is stateless
 
 // Log startup information
 app.Logger.LogInformation("🚀 Email Service API is starting...");
@@ -245,11 +217,6 @@ app.Logger.LogInformation("     POST /api/email/send-with-template - Send email 
 app.Logger.LogInformation("     POST /api/email/send-with-documents - Send email with CMS documents");
 app.Logger.LogInformation("     GET  /api/email/accounts - Get available email accounts");
 app.Logger.LogInformation("     GET  /api/email/health - Health check");
-app.Logger.LogInformation("     POST /api/emailtemplates - Create email template");
-app.Logger.LogInformation("     GET  /api/emailtemplates - Get all email templates");
-app.Logger.LogInformation("     GET  /api/emailtemplates/{id} - Get email template by ID");
-app.Logger.LogInformation("     PUT  /api/emailtemplates/{id} - Update email template");
-app.Logger.LogInformation("     DELETE /api/emailtemplates/{id} - Delete email template");
 app.Logger.LogInformation("🔧 Swagger UI available at: /");
 
 app.Run();

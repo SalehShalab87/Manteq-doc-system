@@ -1,475 +1,659 @@
 # 📁 CMS Web API - Content Management System
 
-**Content Management Syste## ⚙️ Configuration
+**Centralized data gateway and document storage service** for the Manteq Document System. Built with ASP.NET Core 9.0, PostgreSQL, and Entity Framework Core.
 
-### **🔒 Environment Variables (Required)**
-Create `.env` file in the CMS.WebApi directory:
+> 🎯 **Role**: Acts as the **single source of truth** for all system data - documents, templates, and email templates. All other services access data through CMS HTTP APIs.
 
-**File: `CMS.WebApi/.env`**
-```env
-DB_SERVER=YOUR_SERVER\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-```
+---
 
-### **🗂️ Production Storage Configuration**
-```json
-// appsettings.json (no database credentials here!)
-{
-  "FileStorage": {
-    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // Shared with TMS
-  }
-}
-```core document storage and retrieval services for the Manteq Document System. Built with ASP.NET Core 9.0 and Entity Framework Core.
+## 🏗️ Architecture Role
 
-> 🎯 **Role**: Foundation storage layer that manages all documents and templates for TMS and Email Service integration.
-
-## 🏗️ Architecture Integration
-
-The CMS serves as the **central document repository** for the complete Manteq platform:
+The CMS serves as the **Data Gateway** in the microservices architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                MANTEQ DOCUMENT SYSTEM                   │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  📧 Email Service ────── 🎯 TMS API ────── 📁 CMS API   │
-│  (Port 5030)           (Port 5267)      (Port 5000)   │
+│  📧 Email Service ────► 🎯 TMS API ────► 📁 CMS API    │
+│  (Stateless)           (Stateless)      (Data Gateway)  │
 │                                                         │
-│  Uses generated        Processes         Stores ALL    │
-│  content from TMS      templates →       documents     │
-│                       calls CMS internally              │
+│  • HTTP Client         • HTTP Client    • PostgreSQL   │
+│  • No Database         • No Database    • File Storage │
+│  • MailKit/SMTP        • LibreOffice    • Entity FW    │
+│                                                         │
 └─────────────────────────────────────────────────────────┘
-                            │
-                 ┌──────────┴───────────┐
-                 │   SHARED STORAGE     │
-                 │ C:\ManteqStorage_    │
-                 │      Shared\         │
-                 │                     │
-                 │ • CmsDocuments/     │ ← All files here
-                 │ • Templates         │
-                 │ • Generated docs    │
-                 └─────────────────────┘
+                                                │
+                                    ┌───────────┴───────────┐
+                                    │   CMS OWNED DATA      │
+                                    ├───────────────────────┤
+                                    │ 🗄️ PostgreSQL DB     │
+                                    │ 📁 File Storage       │
+                                    │ 📊 4 Tables           │
+                                    └───────────────────────┘
 ```
 
-### **🔄 Service Relationships**
-- **CMS ← TMS**: TMS creates documents in CMS when templates are registered
-- **CMS ← Email**: Email service can attach CMS documents to emails  
-- **Database**: Single shared `CmsDatabase_Dev` for all services
-- **Storage**: Centralized file storage shared by all services
+### **Data Gateway Pattern**
+- ✅ **Single Database**: CMS owns PostgreSQL database
+- ✅ **HTTP APIs**: TMS and EmailService access data via REST
+- ✅ **File Storage**: CMS manages all file operations
+- ✅ **Data Isolation**: Services don't share database connections
 
-## 🚀 Features
+---
 
-### **📁 Core Document Management**
-- ✅ **Document Registration**: Upload and store documents with metadata
-- ✅ **Document Retrieval**: Get document metadata and download URLs  
-- ✅ **File Storage**: Production-grade shared storage architecture
-- ✅ **Database Integration**: Entity Framework with SQL Server
-- ✅ **RESTful API**: Clean REST endpoints with Swagger documentation
+## 🚀 Key Features
 
-### **🔒 Security & Validation**
-- ✅ **File Size Limits**: 50MB maximum with configurable validation
-- ✅ **File Type Support**: Documents (.docx, .xlsx, .pptx), images, archives
-- ✅ **Input Validation**: Comprehensive request validation and error handling
-- ✅ **Safe File Naming**: Automatic sanitization and GUID-based naming
+### **📁 Document Management**
+- ✅ **CRUD Operations**: Create, read, update, delete documents
+- ✅ **File Storage**: Configurable file storage location
+- ✅ **Metadata Tracking**: Type, size, extension, created by, timestamps
+- ✅ **Soft Delete**: Trash system with restore capability
+- ✅ **Activation Control**: Enable/disable documents
+- ✅ **Type Filtering**: Filter by document type with counts
 
-### **🎯 Integration Features**  
-- ✅ **TMS Integration**: Internal services used by Template Management System
-- ✅ **Email Integration**: Document attachment support for Email Service
-- ✅ **Microservice Architecture**: Clean separation of concerns
-- ✅ **Shared Database**: Single database shared across all Manteq services
+### **📧 Email Template Management**
+- ✅ **Body Source Types**: Plain text, TMS template, custom HTML/XHTML
+- ✅ **Multiple Attachments**: CMS documents, TMS-generated, custom files
+- ✅ **Template Analytics**: Sent/failure counts, success rate
+- ✅ **Custom Templates**: Upload HTML/XHTML/MHTML files
+- ✅ **Category System**: Organize templates by category
+- ✅ **File Management**: Upload/download custom templates and attachments
 
-### **⚡ Production Ready**
-- ✅ **Error Handling**: Comprehensive error responses and logging
-- ✅ **Performance**: Optimized file I/O and database queries
-- ✅ **Monitoring**: Health checks and service status endpoints
-- ✅ **Scalability**: Stateless design ready for horizontal scaling
+### **📄 CMS Templates** (for TMS integration)
+- ✅ **Template Metadata**: Name, description, category
+- ✅ **Placeholder Tracking**: List of template properties
+- ✅ **Document References**: Foreign key to CMS documents
+- ✅ **Template Types**: Document, TOB, Quotation
+- ✅ **Export Formats**: Original, Word, PDF
+- ✅ **Usage Analytics**: Success/failure counts
+
+### **🗑️ Trash System**
+- ✅ **Unified Trash**: Documents, templates, email templates
+- ✅ **Soft Delete**: Recoverable deletion with metadata
+- ✅ **Restore Capability**: Undo deletions
+- ✅ **Permanent Delete**: Hard delete from system
+- ✅ **Empty Trash**: Bulk permanent deletion
+
+---
 
 ## 📋 Prerequisites
 
 - ✅ **.NET 9.0 SDK**
-- ✅ **SQL Server Express** (SQLEXPRESS instance)
-- ✅ **Visual Studio Code** or Visual Studio 2022
-- ✅ **Shared Storage Setup**: `C:\ManteqStorage_Shared\CmsDocuments\`
+- ✅ **PostgreSQL 16+** (Docker or local installation)
+- ✅ **Visual Studio Code** or **Visual Studio 2022**
+
+---
 
 ## ⚙️ Configuration
 
-### **�️ Production Storage Configuration**
+### **🔒 Database Connection**
+
+**PostgreSQL Connection** (via `appsettings.json` or environment variables):
+
 ```json
-// appsettings.json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=CmsDatabase_Dev;Integrated Security=true;Trust Server Certificate=true"
-  },
-  "FileStorage": {
-    "Path": "C:\\ManteqStorage_Shared\\CmsDocuments"  // Shared with TMS
+    "DefaultConnection": "Host=localhost;Port=5432;Database=cms_database;Username=cms_user;Password=your_password"
   }
 }
 ```
 
-### **🗄️ Database Setup**
-The CMS uses a shared database with all Manteq services:
+**Docker Environment Variables**:
+```bash
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=cms_database
+POSTGRES_USER=cms_user
+POSTGRES_PASSWORD=ManteqCMS@2025
+POSTGRES_SSL_MODE=Prefer
+```
+
+### **📁 File Storage Configuration**
+
+```json
+{
+  "FileStorage": {
+    "Path": "/app/storage/CmsDocuments"  // Docker
+    // OR
+    "Path": "C:\\ManteqStorage\\CmsDocuments"  // Windows
+  }
+}
+```
+
+### **🌐 CORS Configuration**
+
+```json
+{
+  "AllowedOrigins": [
+    "http://localhost:4200",  // Angular Dev
+    "http://localhost:4201"   // Angular Prod
+  ]
+}
+```
+
+---
+
+## 🗄️ Database Schema
+
+### **Tables Overview**
+
 ```sql
--- Database created automatically on first startup
--- Shared by: CMS, TMS, Email Service
-USE CmsDatabase_Dev
-
--- Tables:
--- Documents (managed by CMS)
--- Templates (managed by TMS, references Documents)
+📊 CMS Database (cms_database)
+├── documents                      -- All documents and files
+├── templates                      -- TMS template metadata
+├── email_templates                -- Email template definitions
+└── email_template_attachments     -- Email attachment configs
 ```
 
-### **📁 Storage Directory Structure**
+### **1. Documents Table**
+
+```sql
+documents
+├── id (uuid, PK)
+├── name (varchar 255)
+├── type (varchar 50)              -- Invoice, Contract, Report, etc.
+├── size (bigint)
+├── extension (varchar 10)
+├── mime_type (varchar 100)
+├── file_path (varchar 500)
+├── creation_date (timestamp)
+├── is_active (boolean)
+├── is_deleted (boolean)
+├── deleted_at (timestamp)
+├── deleted_by (varchar 100)
+└── created_by (varchar 100)
 ```
-C:\ManteqStorage_Shared\
-└── CmsDocuments\                 # All documents stored here
-    ├── email-doc-test_xyz.docx   # Direct uploads
-    ├── Template_abc123.docx      # TMS registered templates
-    └── document_def456.pdf       # Various document types
+
+**Indexes**: name, type, creation_date, is_active, is_deleted, created_by, extension
+
+### **2. Templates Table**
+
+```sql
+templates
+├── id (uuid, PK)
+├── name (varchar 255)
+├── description (varchar 1000)
+├── category (varchar 100)
+├── cms_document_id (uuid, FK → documents.id)
+├── placeholders (jsonb)           -- Array of placeholder names
+├── template_type (int)            -- 0=Document, 1=TOB, 2=Quotation
+├── default_export_format (int)    -- 0=Original, 1=Word, 4=PDF
+├── is_active (boolean)
+├── is_deleted (boolean)
+├── deleted_at (timestamp)
+├── deleted_by (varchar 100)
+├── created_at (timestamp)
+├── created_by (varchar 100)
+├── updated_at (timestamp)
+├── updated_by (varchar 100)
+├── success_count (int)
+└── failure_count (int)
 ```
+
+**Indexes**: name, category, cms_document_id, is_active, is_deleted, template_type
+
+### **3. Email Templates Table**
+
+```sql
+email_templates
+├── id (uuid, PK)
+├── name (varchar 255)
+├── subject (varchar 500)
+├── html_content (text)
+├── plain_text_content (text)
+├── template_id (uuid, FK → templates.id)
+├── body_source_type (int)         -- 0=PlainText, 1=TmsTemplate, 2=CustomTemplate
+├── tms_template_id (uuid)
+├── custom_template_file_path (varchar 500)
+├── is_active (boolean)
+├── is_deleted (boolean)
+├── deleted_at (timestamp)
+├── deleted_by (varchar 100)
+├── category (varchar 100)
+├── sent_count (int)
+├── failure_count (int)
+├── created_by (varchar 100)
+└── created_date (timestamp)
+```
+
+**Indexes**: is_active, is_deleted, category, created_by, template_id, body_source_type, tms_template_id
+
+### **4. Email Template Attachments Table**
+
+```sql
+email_template_attachments
+├── id (uuid, PK)
+├── email_template_id (uuid, FK → email_templates.id)
+├── source_type (int)              -- 1=CmsDocument, 2=TmsTemplate, 3=CustomFile
+├── cms_document_id (uuid, FK → documents.id)
+├── tms_template_id (uuid)
+├── tms_export_format (int)
+├── custom_file_path (varchar 500)
+├── custom_file_name (varchar 255)
+├── file_size (bigint)
+├── mime_type (varchar 100)
+├── display_order (int)
+├── created_date (timestamp)
+└── created_by (varchar 100)
+```
+
+**Indexes**: email_template_id, source_type, display_order
+
+---
 
 ## 🏃‍♂️ Quick Start
 
-### **1. Setup Storage Directory**
-```powershell
-# Create shared storage (run once for entire Manteq system)
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
+### **1. Start PostgreSQL (Docker)**
+
+```bash
+docker run -d \
+  --name manteq-postgres \
+  -e POSTGRES_DB=cms_database \
+  -e POSTGRES_USER=cms_user \
+  -e POSTGRES_PASSWORD=ManteqCMS@2025 \
+  -p 5432:5432 \
+  postgres:16-alpine
 ```
 
-### **2. Build and Run**
+### **2. Update Configuration**
+
+Edit `appsettings.json`:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=cms_database;Username=cms_user;Password=ManteqCMS@2025"
+  },
+  "FileStorage": {
+    "Path": "C:\\ManteqStorage\\CmsDocuments"
+  }
+}
+```
+
+### **3. Create Storage Directory**
+
 ```powershell
-# Navigate to CMS project
-cd CMS.WebApi
+# Windows
+New-Item -ItemType Directory -Path "C:\ManteqStorage\CmsDocuments" -Force
 
-# Restore packages and build
+# Linux/Mac
+mkdir -p /app/storage/CmsDocuments
+```
+
+### **4. Run CMS**
+
+```bash
+cd CMS.Webapi
 dotnet restore
-dotnet build
-
-# Run the CMS service
 dotnet run
 ```
 
-### **3. Access the API**
-- 🌐 **Swagger UI**: http://localhost:5000/swagger
-- 🔗 **Base URL**: http://localhost:5000
-- ✅ **Health Check**: http://localhost:5000/api/documents/health
+**Access Points**:
+- 🌐 API: `http://localhost:5000`
+- 📖 Swagger: `http://localhost:5000/swagger`
+- ✅ Health: `http://localhost:5000/health`
 
-### **4. Verify Installation**
-```powershell
-# Test health endpoint
-curl http://localhost:5000/api/documents/health
-
-# Expected response: {"status": "healthy", "service": "CMS"}
-```
-
-> 🎉 **That's it!** CMS is running and ready to store documents for the entire Manteq system.
+---
 
 ## 🌐 API Endpoints
 
-### **📄 Document Registration**
+### **📁 Documents API**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/documents/register` | Upload and register document |
+| GET | `/api/documents/{id}` | Get document metadata |
+| GET | `/api/documents/{id}/download` | Download document file |
+| GET | `/api/documents` | List all documents (with filters) |
+| POST | `/api/documents/{id}/activate` | Activate document |
+| POST | `/api/documents/{id}/deactivate` | Deactivate document |
+| DELETE | `/api/documents/{id}` | Soft delete (move to trash) |
+| GET | `/api/documents/types` | Get document types with counts |
+
+### **📧 Email Templates API**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/email-templates` | Create email template |
+| GET | `/api/email-templates/{id}` | Get email template |
+| GET | `/api/email-templates` | List all email templates |
+| PUT | `/api/email-templates/{id}` | Update email template |
+| DELETE | `/api/email-templates/{id}` | Soft delete email template |
+| POST | `/api/email-templates/{id}/activate` | Activate email template |
+| POST | `/api/email-templates/{id}/deactivate` | Deactivate email template |
+| GET | `/api/email-templates/{id}/analytics` | Get template analytics |
+| GET | `/api/email-templates/categories` | Get all categories |
+| GET | `/api/email-templates/{id}/custom-template` | Download custom template |
+| POST | `/api/email-templates/{id}/upload-custom` | Upload custom template file |
+| GET | `/api/email-templates/{id}/attachments` | Get template attachments |
+| GET | `/api/email-templates/{id}/attachments/{index}/download` | Download attachment |
+| POST | `/api/email-templates/{id}/increment-sent` | Increment sent count |
+| POST | `/api/email-templates/{id}/increment-failure` | Increment failure count |
+
+### **📄 Templates API** (for TMS)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/templates` | Create template |
+| GET | `/api/templates/{id}` | Get template by ID |
+| GET | `/api/templates` | List templates (with filters) |
+| PUT | `/api/templates/{id}` | Update template |
+| DELETE | `/api/templates/{id}` | Soft delete template |
+| POST | `/api/templates/{id}/activate` | Activate template |
+| POST | `/api/templates/{id}/deactivate` | Deactivate template |
+| POST | `/api/templates/{id}/increment-success` | Increment success count |
+| POST | `/api/templates/{id}/increment-failure` | Increment failure count |
+
+### **🗑️ Trash API**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/trash` | Get all deleted items |
+| POST | `/api/trash/documents/{id}/restore` | Restore document |
+| POST | `/api/trash/templates/{id}/restore` | Restore template |
+| POST | `/api/trash/email-templates/{id}/restore` | Restore email template |
+| DELETE | `/api/trash/documents/{id}/permanent` | Permanently delete document |
+| DELETE | `/api/trash/templates/{id}/permanent` | Permanently delete template |
+| DELETE | `/api/trash/email-templates/{id}/permanent` | Permanently delete email template |
+| DELETE | `/api/trash/empty` | Empty entire trash |
+
+---
+
+## 📝 API Examples
+
+### **Document Registration**
+
 ```http
-POST http://localhost:5000/api/documents/register
+POST /api/documents/register
 Content-Type: multipart/form-data
 
-Parameters:
-- file: Document file (required)
-- description: Document description (optional)
+name=Invoice-2025-001
+type=Invoice
+Content=@invoice.pdf
 ```
 
-**Example Response**:
+**Response:**
 ```json
 {
-  "documentId": "ced4e35b-134c-4002-bed1-de26d3dabe89",
-  "fileName": "Email_Template.docx",
-  "message": "Document registered successfully",
-  "downloadUrl": "/api/documents/ced4e35b-134c-4002-bed1-de26d3dabe89/download"
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "message": "Document registered successfully"
 }
 ```
 
-### **📄 Document Metadata**
-```http
-GET http://localhost:5000/api/documents/{documentId}
-```
+### **Email Template Creation**
 
-**Example Response**:
-```json
+```http
+POST /api/email-templates
+Content-Type: application/json
+
 {
-  "id": "ced4e35b-134c-4002-bed1-de26d3dabe89",
-  "fileName": "Email_Template.docx",
-  "filePath": "C:\\ManteqStorage_Shared\\CmsDocuments\\Email_Template.docx_ced4e35b-134c-4002-bed1-de26d3dabe89.docx",
-  "description": "Customer email template",
-  "createdAt": "2025-09-11T13:38:34.123Z",
-  "fileSize": 42060
+  "name": "Welcome Email",
+  "subject": "Welcome to Manteq",
+  "bodySourceType": 1,
+  "tmsTemplateId": "template-guid-here",
+  "category": "Onboarding",
+  "attachments": [
+    {
+      "sourceType": 1,
+      "cmsDocumentId": "doc-guid-here",
+      "displayOrder": 0
+    }
+  ]
 }
 ```
 
-### **📥 Document Download**
-```http
-GET http://localhost:5000/api/documents/{documentId}/download
-```
-Returns the actual file with appropriate content-type headers.
+### **Get Trash Items**
 
-### **🔍 Health Check**
 ```http
-GET http://localhost:5000/api/documents/health
+GET /api/trash
 ```
 
-**Response**:
+**Response:**
 ```json
+{
+  "documents": [
+    {
+      "id": "doc-id",
+      "name": "Old Invoice",
+      "type": "Document",
+      "deletedAt": "2025-01-15T10:30:00Z",
+      "deletedBy": "user@example.com",
+      "originalType": "Invoice"
+    }
+  ],
+  "templates": [],
+  "emailTemplates": []
+}
+```
+
+---
+
+## 🐳 Docker Deployment
+
+### **Dockerfile** (provided)
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 5000
+
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["CMS.Webapi/CMS.WebApi.csproj", "CMS.Webapi/"]
+RUN dotnet restore "CMS.Webapi/CMS.WebApi.csproj"
+COPY . .
+WORKDIR "/src/CMS.Webapi"
+RUN dotnet build "CMS.WebApi.csproj" -c Release -o /app/build
+RUN dotnet publish "CMS.WebApi.csproj" -c Release -o /app/publish
+
+# Final stage
+FROM base AS final
+WORKDIR /app
+RUN mkdir -p /app/storage/CmsDocuments
+COPY --from=publish /app/publish .
+ENV ASPNETCORE_URLS=http://+:5000
+ENTRYPOINT ["dotnet", "CMS.WebApi.dll"]
+```
+
+### **Run with Docker Compose**
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cms_database
+      POSTGRES_USER: cms_user
+      POSTGRES_PASSWORD: ManteqCMS@2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  cms-api:
+    build:
+      context: .
+      dockerfile: CMS.Webapi/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=cms_database;Username=cms_user;Password=ManteqCMS@2025
+      - FileStorage__Path=/app/storage/CmsDocuments
+    ports:
+      - "5000:5000"
+    volumes:
+      - cms-storage:/app/storage
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-data:
+  cms-storage:
+```
+
+---
+
+## 🧪 Testing
+
+### **Health Check**
+
+```bash
+curl http://localhost:5000/health
+
+# Response
 {
   "status": "healthy",
-  "service": "CMS",
-  "timestamp": "2025-09-11T13:45:00Z",
-  "database": "connected",
-  "storage": "accessible"
+  "service": "CMS API",
+  "version": "v1",
+  "timestamp": "2025-11-18T10:00:00Z"
 }
 ```
 
-## 🗂️ Project Structure
+### **Document Upload Test**
 
-```
-CMS.WebApi/
-├── 📄 appsettings.json              # Production configuration
-├── 📄 appsettings.Development.json  # Development settings
-├── 📄 Program.cs                    # Application entry point & DI setup
-├── 
-├── 📁 Controllers/
-│   └── DocumentsController.cs       # REST API endpoints
-├── 📁 Data/
-│   └── CmsDbContext.cs             # Entity Framework context
-├── 📁 Models/
-│   ├── Document.cs                 # Document entity model
-│   └── DocumentDto.cs              # Data transfer objects
-├── 📁 Services/
-│   ├── IDocumentService.cs         # Service interface
-│   └── DocumentService.cs          # Business logic implementation
-├── 📁 Properties/
-│   └── launchSettings.json         # Development launch settings
-└── 📁 bin/Debug/net9.0/            # Build output (DLL for integration)
+```bash
+curl -X POST http://localhost:5000/api/documents/register \
+  -F "name=Test Document" \
+  -F "type=Invoice" \
+  -F "Content=@test.pdf"
 ```
 
-### **🔧 Key Configuration Files**
-- **Program.cs**: Dependency injection, Entity Framework setup, CORS configuration
-- **appsettings.json**: Database connection, file storage path, logging levels  
-- **CmsDbContext.cs**: Database models, relationships, Entity Framework configuration
-- **DocumentService.cs**: Core business logic for file storage and database operations
+### **Email Template Test**
 
-### **📊 Database Context**
-```csharp
-public class CmsDbContext : DbContext
+```bash
+curl -X POST http://localhost:5000/api/email-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Template",
+    "subject": "Test Subject",
+    "bodySourceType": 0,
+    "plainTextContent": "Test email body",
+    "category": "Testing"
+  }'
+```
+
+---
+
+## 📊 Monitoring & Analytics
+
+### **Template Analytics**
+
+```bash
+curl http://localhost:5000/api/email-templates/{id}/analytics
+
+# Response
 {
-    public DbSet<Document> Documents { get; set; }
-    
-    // Shared database with TMS:
-    // - Documents table (managed by CMS)
-    // - Templates table (managed by TMS, references Documents)
+  "templateId": "guid",
+  "templateName": "Welcome Email",
+  "sentCount": 1250,
+  "failureCount": 15,
+  "totalAttempts": 1265,
+  "successRate": 98.81
 }
 ```
 
-## �️ Development and Deployment
+### **Document Types Summary**
 
-### **� Development Setup**
-```powershell
-# Clone and build
-git clone https://github.com/SalehShalab87/Manteq-doc-system.git
-cd Manteq-doc-system\CMS.WebApi
+```bash
+curl http://localhost:5000/api/documents/types
 
-# Create storage directory
-New-Item -ItemType Directory -Path "C:\ManteqStorage_Shared\CmsDocuments" -Force
-
-# Build and run
-dotnet build
-dotnet run
+# Response
+[
+  { "type": "Invoice", "count": 523 },
+  { "type": "Contract", "count": 145 },
+  { "type": "Report", "count": 89 }
+]
 ```
 
-### **🚀 Production Deployment**
-```powershell
-# Build release version
-dotnet publish -c Release -o ./publish
+---
 
-# Configure production settings in appsettings.json:
-# - Update database connection string
-# - Set production storage path
-# - Configure logging levels
+## 🔧 Development
+
+### **Project Structure**
+
+```
+CMS.Webapi/
+├── Controllers/
+│   ├── DocumentsController.cs         # Document CRUD operations
+│   ├── EmailTemplatesController.cs    # Email template management
+│   ├── TemplatesController.cs         # CMS templates for TMS
+│   └── TrashController.cs             # Soft delete management
+├── Data/
+│   └── CmsDbContext.cs                # Entity Framework context
+├── Models/
+│   ├── Document.cs                    # Document entity
+│   ├── EmailTemplate.cs               # Email template entity
+│   ├── EmailTemplateAttachment.cs     # Attachment entity
+│   ├── Template.cs                    # CMS template entity
+│   └── *Dto.cs                        # Data transfer objects
+├── Services/
+│   ├── DocumentService.cs             # Document business logic
+│   ├── EmailTemplateService.cs        # Email template logic
+│   ├── CmsTemplateService.cs          # Template logic
+│   └── EmailTemplateFileService.cs    # File operations
+├── Program.cs                         # Application entry point
+├── appsettings.json                   # Configuration
+└── Dockerfile                         # Docker configuration
 ```
 
-### **🧩 Use as Service in Other Projects**
-```csharp
-// In other Manteq services (like TMS):
-services.AddScoped<IDocumentService, DocumentService>();
-services.AddDbContext<CmsDbContext>(options =>
-    options.UseSqlServer(connectionString));
+### **Adding New Features**
 
-// Services can now inject and use CMS functionality
-public class TemplateService 
-{
-    private readonly IDocumentService _documentService;
-    
-    public TemplateService(IDocumentService documentService)
-    {
-        _documentService = documentService;
-    }
-    
-    // Use CMS to store template files
-    public async Task<Document> StoreTemplateAsync(IFormFile file)
-    {
-        return await _documentService.CreateAsync(file, "Template file");
-    }
-}
-```
+1. **Create Entity** in `Models/`
+2. **Add DbSet** to `CmsDbContext`
+3. **Create Service** interface and implementation
+4. **Add Controller** with API endpoints
+5. **Run Migration**: `dotnet ef migrations add YourMigration`
+6. **Update Database**: `dotnet ef database update`
 
-### **📦 DLL Integration**
-- **Build Output**: `bin\Release\net9.0\CMS.WebApi.dll`
-- **Dependencies**: Entity Framework Core, ASP.NET Core
-- **Usage**: Reference project or DLL in other Manteq services
+---
 
-## 🧪 Testing the CMS
+## 🔒 Security
 
-### **🔍 Health Check Test**
-```powershell
-# Verify CMS is running
-curl http://localhost:5000/api/documents/health
+### **Authentication Headers**
 
-# Expected: {"status": "healthy", "service": "CMS"}
-```
-
-### **📄 Document Upload Test**
-```powershell
-# Upload a document
-curl -X POST "http://localhost:5000/api/documents/register" `
-     -F "file=@test-document.docx" `
-     -F "description=Test document upload"
-
-# Response includes documentId for further operations
-```
-
-### **📥 Document Download Test**
-```powershell
-# Download the uploaded document
-curl -X GET "http://localhost:5000/api/documents/{documentId}/download" `
-     --output downloaded-document.docx
-```
-
-### **🌐 Swagger UI Testing**
-1. Navigate to http://localhost:5000/swagger
-2. Use **POST /api/documents/register** to upload a file
-3. Copy the returned `documentId`
-4. Use **GET /api/documents/{documentId}** to get metadata
-5. Use **GET /api/documents/{documentId}/download** to download
-
-### **📊 Storage Verification**
-```powershell
-# Check that files are stored correctly
-Get-ChildItem "C:\ManteqStorage_Shared\CmsDocuments\"
-
-# Should show uploaded files with GUID naming pattern
-```
-
-## � Integration with Other Services
-
-### **🎯 TMS Integration (Primary Use Case)**
-The Template Management System uses CMS internally for template storage:
-
-```csharp
-// TMS calls CMS services internally
-// When you POST to TMS /api/templates/register:
-//   1. TMS receives template file
-//   2. TMS calls CMS DocumentService internally  
-//   3. CMS stores file in shared storage
-//   4. CMS returns Document ID to TMS
-//   5. TMS creates Template record with CmsDocumentId foreign key
-```
-
-**Integration Flow:**
-```
-TMS Template Upload
-        ↓
-TMS → CMS.DocumentService.CreateAsync()
-        ↓
-CMS stores in C:\ManteqStorage_Shared\CmsDocuments\
-        ↓
-CMS returns Document ID
-        ↓
-TMS creates Template record
-```
-
-### **📧 Email Service Integration**
-Email Service can attach CMS documents to outgoing emails:
+The API expects user identification via headers:
 
 ```http
-POST /api/email/send-with-attachments
-{
-  "to": ["recipient@example.com"],
-  "subject": "Documents Attached",
-  "body": "Please find documents attached",
-  "cmsDocumentIds": ["ced4e35b-134c-4002-bed1-de26d3dabe89"]
-}
+X-SME-UserId: user@example.com
 ```
 
-### **🗄️ Shared Database Schema**
-```sql
--- CmsDatabase_Dev
-Documents (CMS)                Templates (TMS)
-├── Id (PK)            ←──────── CmsDocumentId (FK)
-├── FileName                     ├── Id (PK)
-├── FilePath                     ├── Name
-├── Description                  ├── Description
-├── CreatedAt                    └── CreatedAt
-└── FileSize
-```
+This header is used for:
+- Document `created_by` field
+- Audit logging
+- Soft delete `deleted_by` field
 
-### **📁 Storage Architecture**
-All services share the same storage locations but CMS manages the files:
-- **CMS**: Creates and manages files in `CmsDocuments/`
-- **TMS**: Processes files from `CmsDocuments/`, outputs to `TmsGenerated/`
-- **Email**: References files from both locations as needed
+### **File Upload Validation**
 
-## 📚 Additional Resources
-
-### **🌐 API Documentation**
-- **Swagger UI**: http://localhost:5000/swagger (when running)
-- **OpenAPI Spec**: Available at runtime for integration tools
-
-### **🔗 Related Documentation**
-- **[Main System README](../README.md)** - Complete Manteq Document System overview
-- **[TMS README](../TMS.WebApi/README.md)** - Template Management System (uses CMS)
-- **[Email Service README](../EmailService.WebApi/README.md)** - Email integration
-- **[Team Developer Guide](../TEAM_GUIDE.md)** - Comprehensive development guide
-
-### **🧪 Testing Tools**
-- **Postman**: Import OpenAPI spec for complete API testing
-- **curl**: Command-line testing examples shown above
-- **Swagger UI**: Built-in testing interface
-- **Integration Tests**: Use CMS as DLL in test projects
+- **Max file size**: 50MB (configurable)
+- **Allowed types**: All common document types
+- **Path sanitization**: Prevents directory traversal
+- **GUID naming**: Avoids filename conflicts
 
 ---
 
-## 📞 Support and Contact
+## 📞 Support
 
-- **👨‍💻 Lead Developer**: Saleh Shalab
-- **📧 Email**: salehshalab2@gmail.com
-- **🌐 Repository**: https://github.com/SalehShalab87/Manteq-doc-system
-- **🐛 Issues**: Use GitHub Issues for bug reports
+- **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **Lead Developer**: Saleh Shalab
+- **Email**: salehshalab2@gmail.com
 
 ---
 
-## ✅ Status: Production Ready
+## ✅ Production Ready
 
 🎉 **CMS Web API is fully operational and production-ready!**
 
-**✅ Features Complete:**
-- Document storage and retrieval
-- Shared storage architecture  
-- Database integration with TMS
-- REST API with comprehensive documentation
-- Error handling and validation
-- Health monitoring
+**✅ Core Features**:
+- PostgreSQL database with Entity Framework Core
+- Complete CRUD for documents, templates, email templates
+- Soft delete with trash management
+- File storage with configurable location
+- RESTful API with Swagger documentation
+- Docker support with health checks
+- Analytics and monitoring endpoints
 
-**🔗 Integration Status:**
-- ✅ TMS Integration: Fully implemented and tested
-- ✅ Email Service Integration: Ready for document attachments
-- ✅ Database Schema: Stable and optimized
-- ✅ Shared Storage: Production-grade file management
+**✅ Microservices Integration**:
+- HTTP API client for TMS and EmailService
+- Stateless service architecture
+- Resilient communication with retry policies
+- Independent deployment and scaling
 
-**🚀 Ready for production deployment as the foundation storage layer of the Manteq Document System.**
+🚀 **Ready to serve as the data gateway for the entire Manteq Document System!**

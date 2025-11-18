@@ -1,604 +1,528 @@
 # 📧 Email Service Web API
 
-**Email automation service** that integrates with TMS and CMS for template-based email generation and document attachments. Built with ASP.NET Core 9.0.
+**Stateless email automation service** that orchestrates TMS and CMS to send template-based emails with attachments. Built with ASP.NET Core 9.0, MailKit, and HTTP clients.
 
-> 📧 **Role**: Email automation hub that combines TMS-generated content with CMS document attachments for comprehensive email workflows.
+> 📧 **Role**: Email orchestration layer that combines TMS-generated content with CMS document attachments for comprehensive email workflows.
 
-## 🏗️ Architecture Integration
+---
 
-The Email Service serves as the **communication layer** in the Manteq ecosystem:
+## 🏗️ Architecture Role
+
+EmailService operates as a **Pure Orchestrator** in the microservices architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                MANTEQ DOCUMENT SYSTEM                   │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  📧 Email Service ────── 🎯 TMS API ────── 📁 CMS API   │
-│  (Port 5030)           (Port 5267)      (Port 5000)   │
+│  📧 Email Service ────► 🎯 TMS API ────► 📁 CMS API    │
+│  (Orchestrator)        (Generator)      (Data Store)    │
 │                                                         │
-│  • SMTP Integration    • EmailHtml        • Document    │
-│  • Template-based      • Content Gen     • Attachments │
-│  • Multi-account       • Base64 images   • File Storage │
-│  • Email automation    • Auto-cleanup    • Metadata    │
-│                                                         │
+│  • MailKit/SMTP       • EmailHtml       • Documents    │
+│  • HTTP Clients       • Base64 Images   • Templates    │
+│  • No Database        • Conversion      • File Storage │
+│  • Stateless          • HTTP API        • PostgreSQL   │
 └─────────────────────────────────────────────────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    │    EMAIL FLOW     │
-                    │                   │
-                    │ 1. Request Email  │ → With template ID + data
-                    │ 2. Call TMS       │ → Generate EmailHtml content  
-                    │ 3. Get HTML       │ → Base64 images embedded
-                    │ 4. Send via SMTP  │ → HTML becomes email body
-                    │ 5. Cleanup        │ → TMS auto-cleans temp files
-                    └───────────────────┘
+                            │
+                ┌───────────┴────────────┐
+                │   EMAIL WORKFLOW       │
+                ├────────────────────────┤
+                │ 1️⃣ Get Email Template │
+                │ 2️⃣ Generate TMS Body  │
+                │ 3️⃣ Attach CMS Docs    │
+                │ 4️⃣ Send via SMTP      │
+                └────────────────────────┘
 ```
 
-### **🔄 Service Integration Flow**
-- **Email → TMS**: Requests EmailHtml generation from templates
-- **Email → CMS**: Fetches documents for email attachments
-- **TMS → Email**: Returns email-ready HTML with base64 images
-- **Email → SMTP**: Sends via configured email accounts
+### **Pure Orchestration Pattern**
+- ✅ **No Database**: All data via HTTP APIs
+- ✅ **HTTP Clients**: TMS and CMS integration
+- ✅ **SMTP Only**: Email sending with MailKit
+- ✅ **Stateless**: Can run multiple instances
+- ✅ **Resilient**: Polly retry and circuit breaker
 
-## 🚀 Features
+---
 
-### **📧 Email Automation APIs**
-- ✅ **Template-Based Emails**: Generate content from TMS templates on-the-fly
-- ✅ **Document Attachments**: Attach files from CMS document storage
-- ✅ **Multi-Account Support**: Configure multiple SMTP accounts
-- ✅ **Health Monitoring**: Service status and configuration validation
+## 🚀 Key Features
 
-### **🎯 TMS Integration Features**
-- ✅ **EmailHtml Format**: TMS content becomes email body (no attachment)
-- ✅ **Base64 Images**: All images embedded directly in email HTML
-- ✅ **Other Formats**: Word/PDF/HTML added as email attachments
-- ✅ **Auto-Cleanup**: Generated documents deleted after email sent
-- ✅ **Error Handling**: Graceful fallback when TMS unavailable
+### **📧 Email Template Support**
+- ✅ **Multiple Body Types**: Plain text, TMS template, custom HTML
+- ✅ **Template Management**: Via CMS email templates API
+- ✅ **Property Substitution**: Dynamic placeholder filling
+- ✅ **Subject & Body**: Full template control
 
-### **📁 CMS Integration Features**
-- ✅ **Document Attachments**: Attach existing CMS documents to emails
-- ✅ **File Metadata**: Include document names and descriptions
-- ✅ **Multiple Attachments**: Support for multiple document attachments
-- ✅ **File Validation**: Verify documents exist before sending
+### **📎 Flexible Attachments**
+- ✅ **CMS Documents**: Attach existing documents
+- ✅ **TMS Generated**: Generate documents on-the-fly
+- ✅ **Custom Files**: Upload custom attachments
+- ✅ **Mixed Sources**: Combine all attachment types
 
-### **� Security & Configuration**
-- ✅ **Environment Variables**: SMTP credentials stored securely
-- ✅ **Email Validation**: Basic email address format validation  
-- ✅ **SMTP Authentication**: App passwords for secure authentication
-- ✅ **Configuration API**: Runtime configuration management
+### **🔄 TMS Integration**
+- ✅ **EmailHtml Generation**: Request HTML from TMS
+- ✅ **Base64 Images**: Receive embedded images
+- ✅ **Auto-Download**: Single HTTP call
+- ✅ **Multiple Formats**: PDF, Word, etc. as attachments
 
-### **⚡ Production Features**
-- ✅ **Async Operations**: Non-blocking email sending
-- ✅ **Error Logging**: Comprehensive error handling and logging
-- ✅ **Health Checks**: Service and dependency monitoring
-- ✅ **Scalable Design**: Stateless service ready for horizontal scaling
+### **📁 CMS Integration**
+- ✅ **Document Retrieval**: Download CMS documents
+- ✅ **Template Access**: Get email template configs
+- ✅ **Custom Templates**: Fetch custom HTML files
+- ✅ **Analytics**: Update sent/failure counts
+
+### **📨 SMTP Features**
+- ✅ **Multi-Account**: Configure multiple SMTP accounts
+- ✅ **MailKit**: Professional email library
+- ✅ **HTML & Plain Text**: Both formats supported
+- ✅ **CC & BCC**: Full recipient support
+- ✅ **Attachments**: Multiple file attachments
+
+### **🛡️ Resilience**
+- ✅ **Retry Policy**: 3 retries with exponential backoff
+- ✅ **Circuit Breaker**: Prevents cascade failures
+- ✅ **Timeout Management**: Configurable timeouts
+- ✅ **Error Logging**: Comprehensive error tracking
+
+---
 
 ## 📋 Prerequisites
 
 - ✅ **.NET 9.0 SDK**
-- ✅ **SQL Server Express** (shared `CmsDatabase_Dev`)
-- ✅ **TMS Web API** running on port 5267
-- ✅ **CMS Web API** running on port 5000  
-- ✅ **Email Account** with App Password (Outlook/Gmail/etc.)
+- ✅ **SMTP Account** (Outlook, Gmail, etc.)
+- ✅ **TMS API** running (for content generation)
+- ✅ **CMS API** running (for templates & documents)
+
+---
 
 ## ⚙️ Configuration
 
-### **� Environment Variables (Required)**
-Create `.env` file in the EmailService.WebApi directory:
+### **📧 SMTP Configuration**
 
-**File: `EmailService.WebApi/.env`**
-```env
-# Database Configuration
-DB_SERVER=YOUR_SERVER\SQLEXPRESS
-DB_DATABASE=CmsDatabase_Dev  
-DB_INTEGRATED_SECURITY=true
-DB_TRUST_SERVER_CERTIFICATE=true
-
-# SMTP Configuration
-SMTP_HOST=smtp.outlook.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@outlook.com
-SMTP_PASSWORD=your-app-password
-SMTP_ENABLE_SSL=true
-```
-
-### **📧 Email Configuration**
-```json
-// appsettings.json (no database or SMTP credentials here!)
-{
-  "EmailSettings": {
-    "DefaultFromEmail": "noreply@manteq-me.com",
-    "DefaultFromName": "Manteq System"
-  }
-}
-```
-SMTP_PORT=587
-SMTP_USERNAME=your-email@outlook.com  
-SMTP_PASSWORD=your-app-password
-SMTP_FROM_NAME=Your Name
-
-# Optional: Additional email accounts
-# SMTP2_HOST=smtp.gmail.com
-# SMTP2_PORT=587
-# etc.
-```
-
-> **🔒 Security**: SMTP credentials are stored as environment variables, never in code or config files.
-
-## 🏃‍♂️ Quick Start
-
-### **1. Setup Prerequisites**
-```powershell
-# Ensure TMS and CMS are running
-curl http://localhost:5267/api/templates/health  # TMS
-curl http://localhost:5000/api/documents/health  # CMS
-
-# Both should return healthy status
-```
-
-### **2. Configure SMTP Settings**
-```powershell
-# Set environment variables for email account
-$env:SMTP_HOST = "smtp.outlook.com"
-$env:SMTP_PORT = "587"
-$env:SMTP_USERNAME = "your-email@outlook.com"
-$env:SMTP_PASSWORD = "your-app-password"  # Use App Password, not regular password
-$env:SMTP_FROM_NAME = "Your Name"
-```
-
-### **3. Build and Run Email Service**
-```powershell
-# Navigate to Email Service
-cd EmailService.WebApi
-
-# Build with TMS and CMS dependencies
-dotnet build EmailService.WebApi.sln
-
-# Run the service
-dotnet run
-
-# 🌐 Access: http://localhost:5030
-# 📖 Swagger: http://localhost:5030/swagger
-```
-
-### **4. Test Email Service**
-```powershell
-# Health check
-curl http://localhost:5030/api/email/health
-
-# Expected response:
-# {
-#   "status": "healthy",
-#   "service": "EmailService", 
-#   "smtpConfiguration": "configured",
-#   "tmsIntegration": "available",
-#   "cmsIntegration": "available"
-# }
-```
-
-### **5. Send Test Email**
-```powershell
-# Send email with TMS template content
-curl -X POST "http://localhost:5030/api/email/send-generated-document" `
-     -H "Content-Type: application/json" `
-     -d '{
-       "to": ["test@example.com"],
-       "subject": "Test Email from Manteq System",
-       "templateId": "your-template-id",
-       "propertyValues": {
-         "CustomerName": "Test User"
-       },
-       "exportFormat": "EmailHtml"
-     }'
-```
-
-> 🎉 **Success!** Email Service is running and ready to send template-based emails.
-
-## 🌐 API Reference
-
-### **📧 Send Email with TMS Template (EmailHtml)**
-**Primary Use Case**: Template content becomes email body
-```http
-POST http://localhost:5030/api/email/send-generated-document
-Content-Type: application/json
-
-{
-  "to": ["customer@example.com"],
-  "subject": "Your Policy Documents",
-  "templateId": "96cec0ae-a1f9-4e01-8e07-16ddd57b4b25",
-  "propertyValues": {
-    "CustomerName": "John Smith",
-    "PolicyNumber": "POL-2025-001234",
-    "SupportEmail": "support@manteq-me.com"
-  },
-  "exportFormat": "EmailHtml"  // Content becomes email body
-}
-```
-
-**Response:**
 ```json
 {
-  "success": true,
-  "message": "Email sent successfully",
-  "emailId": "abc123-def456-ghi789",
-  "recipients": ["customer@example.com"],
-  "sentAt": "2025-09-11T14:30:00Z"
-}
-```
-
-### **📧 Send Email with TMS Template (as Attachment)**
-```http
-POST http://localhost:5030/api/email/send-generated-document
-Content-Type: application/json
-
-{
-  "to": ["customer@example.com"],
-  "subject": "Your Invoice Document",
-  "body": "Please find your invoice attached.",  // Custom body
-  "templateId": "invoice-template-id",
-  "propertyValues": {
-    "CustomerName": "John Smith",
-    "InvoiceNumber": "INV-2025-001"
-  },
-  "exportFormat": "Pdf"  // Creates attachment
-}
-```
-
-### **📎 Send Email with CMS Document Attachments**
-```http
-POST http://localhost:5030/api/email/send-with-attachments
-Content-Type: application/json
-
-{
-  "to": ["customer@example.com"],
-  "subject": "Document Delivery",
-  "body": "Please find the requested documents attached.",
-  "cmsDocumentIds": [
-    "ced4e35b-134c-4002-bed1-de26d3dabe89",
-    "1d4c5082-021d-42a4-9f39-794671cf8bac"
-  ]
-}
-```
-
-### **🔍 Health and Configuration**
-```http
-# Service health check
-GET http://localhost:5030/api/email/health
-
-# Response:
-{
-  "status": "healthy",
-  "service": "EmailService",
-  "timestamp": "2025-09-11T14:30:00Z",
-  "smtpConfiguration": "configured",
-  "tmsIntegration": "available", 
-  "cmsIntegration": "available"
-}
-
-# Get email accounts configuration
-GET http://localhost:5030/api/email/accounts
-
-# Response:
-{
-  "accounts": [
-    {
-      "name": "primary",
-      "emailAddress": "noreply@manteq-me.com",
-      "displayName": "Manteq System",
-      "isDefault": true
-    }
-  ]
-}
-```
-```json
-POST /api/email/send-with-template
-{
-  "toRecipients": ["customer@example.com"],
-  "subject": "Your Invoice Document",
-  "htmlBody": "<p>Please find your invoice attached.</p>",
-  "templateId": "550e8400-e29b-41d4-a716-446655440000",
-  "propertyValues": {
-    "CustomerName": "John Doe",
-    "InvoiceNumber": "INV-2023-001"
-  },
-  "exportFormat": "Pdf"
-## 🎯 Key Email Workflows
-
-### **📧 EmailHtml Workflow (Primary Use Case)**
-```
-1. EmailService receives request with templateId + data
-     ↓
-2. EmailService → TMS: Generate EmailHtml format
-     ↓  
-3. TMS processes template, creates HTML with base64 images
-     ↓
-4. EmailService receives HTML content  
-     ↓
-5. HTML content becomes email body (no attachment)
-     ↓
-6. Email sent via SMTP, TMS auto-cleans temp files
-```
-
-### **📎 Document Attachment Workflow**
-```  
-1. EmailService receives request with exportFormat = "Pdf"/"Word"
-     ↓
-2. EmailService → TMS: Generate document in requested format
-     ↓
-3. TMS creates document file
-     ↓
-4. EmailService attaches file to email + uses custom body
-     ↓
-5. Email sent with attachment, temp file cleaned up
-```
-
-### **📁 CMS Attachment Workflow**
-```
-1. EmailService receives CMS document IDs
-     ↓
-2. EmailService → CMS: Get document metadata & files  
-     ↓
-3. CMS returns permanent document files
-     ↓
-4. EmailService attaches documents to email
-     ↓
-5. Email sent (CMS documents remain permanent)
-```
-
-## 🔧 Advanced Configuration
-
-### **📧 Multi-Account SMTP Setup**
-```json
-{
-  "EmailSettings": {
-    "DefaultFromEmail": "noreply@manteq-me.com",
-    "DefaultFromName": "Manteq System",
+  "Email": {
+    "Smtp": {
+      "Host": "smtp-mail.outlook.com",
+      "Port": 587,
+      "EnableSsl": true,
+      "Username": "your-email@outlook.com",
+      "Password": "your-app-password"
+    },
     "Accounts": [
       {
         "name": "primary",
-        "displayName": "Manteq Support",
-        "emailAddress": "support@manteq-me.com",
+        "displayName": "Manteq System",
+        "emailAddress": "noreply@manteq-me.com",
         "isDefault": true
-      },
-      {
-        "name": "sales", 
-        "displayName": "Manteq Sales",
-        "emailAddress": "sales@manteq-me.com",
-        "isDefault": false
       }
     ]
   }
 }
 ```
 
-### **🔒 Environment Variables Reference**
-```env
-# Primary SMTP Configuration
-SMTP_HOST=smtp.outlook.com
+**Docker Environment Variables**:
+```bash
+SMTP_HOST=smtp-mail.outlook.com
 SMTP_PORT=587
-SMTP_USERNAME=your-email@outlook.com
-SMTP_PASSWORD=your-app-password  # NOT regular password!
-SMTP_FROM_NAME=Your Display Name
-
-# Optional: SSL/TLS Settings
 SMTP_ENABLE_SSL=true
-SMTP_USE_DEFAULT_CREDENTIALS=false
+SMTP_USERNAME=your-email@outlook.com
+SMTP_PASSWORD=your-app-password
 ```
 
-### **⚙️ TMS Integration Settings**
+### **🔗 Service Connections**
+
 ```json
 {
-  "TmsIntegration": {
+  "TmsApi": {
     "BaseUrl": "http://localhost:5267",
-    "TimeoutSeconds": 30,
-    "RetryAttempts": 3
+    "Timeout": "60"
   },
-  "CmsIntegration": {
-    "BaseUrl": "http://localhost:5000", 
-    "TimeoutSeconds": 15,
-    "RetryAttempts": 2
+  "CmsApi": {
+    "BaseUrl": "http://localhost:5000",
+    "Timeout": "30"
   }
 }
 ```
 
-## 🧪 Testing the Email Service
-
-### **🔍 Health Check Test**
-```powershell
-# Verify Email Service and dependencies
-curl http://localhost:5030/api/email/health
-
-# Expected response:
-# {
-#   "status": "healthy",
-#   "service": "EmailService",
-#   "smtpConfiguration": "configured",
-#   "tmsIntegration": "available",
-#   "cmsIntegration": "available" 
-# }
+**Docker Environment**:
+```bash
+TMS_BASE_URL=http://tms-api:5267
+CMS_BASE_URL=http://cms-api:5000
 ```
 
-### **📧 Template Email Test**  
-```powershell
-# Test EmailHtml generation (content becomes email body)
-curl -X POST "http://localhost:5030/api/email/send-generated-document" `
-     -H "Content-Type: application/json" `
-     -d '{
-       "to": ["test@example.com"],
-       "subject": "Test Template Email",
-       "templateId": "your-template-id",
-       "propertyValues": {
-         "CustomerName": "Test Customer",
-         "PolicyNumber": "TEST-001"
-       },
-       "exportFormat": "EmailHtml"
-     }'
+---
 
-# Check email client - content should be formatted HTML with embedded images
+## 🏃‍♂️ Quick Start
+
+### **1. Get SMTP App Password**
+
+**Outlook/Hotmail**:
+1. Go to: https://account.microsoft.com/security
+2. Enable 2FA
+3. Generate App Password for "Mail"
+4. Use this password (not your regular password)
+
+**Gmail**:
+1. Enable 2FA
+2. Go to App Passwords
+3. Generate password for "Mail"
+
+### **2. Configure SMTP**
+
+Edit `appsettings.json`:
+```json
+{
+  "Email": {
+    "Smtp": {
+      "Host": "smtp-mail.outlook.com",
+      "Port": 587,
+      "EnableSsl": true,
+      "Username": "your-email@outlook.com",
+      "Password": "your-app-password"
+    }
+  }
+}
 ```
 
-### **📎 Attachment Test**
-```powershell  
-# Test document attachment (PDF attached to email)
-curl -X POST "http://localhost:5030/api/email/send-generated-document" `
-     -H "Content-Type: application/json" `
-     -d '{
-       "to": ["test@example.com"],
-       "subject": "Test Document Attachment",
-       "body": "Please find the document attached.",
-       "templateId": "your-template-id",
-       "propertyValues": {"CustomerName": "Test"},
-       "exportFormat": "Pdf"
-     }'
+### **3. Start Dependencies**
 
-# Check email client - should have PDF attachment
+```bash
+# Ensure TMS and CMS are running
+curl http://localhost:5267/health
+curl http://localhost:5000/health
 ```
 
-### **📁 CMS Document Test**
-```powershell
-# Test CMS document attachment
-curl -X POST "http://localhost:5030/api/email/send-with-attachments" `
-     -H "Content-Type: application/json" `
-     -d '{
-       "to": ["test@example.com"],
-       "subject": "CMS Document Test", 
-       "body": "CMS documents attached.",
-       "cmsDocumentIds": ["ced4e35b-134c-4002-bed1-de26d3dabe89"]
-     }'
+### **4. Run Email Service**
+
+```bash
+cd EmailService.WebApi
+dotnet restore
+dotnet run
 ```
 
-## ❌ Troubleshooting
+**Access Points**:
+- 🌐 API: `http://localhost:5030`
+- 📖 Swagger: `http://localhost:5030/swagger`
+- ✅ Health: `http://localhost:5030/health`
 
-### **🔐 SMTP Authentication Issues**
-```powershell
-# 1. Check App Password setup (NOT regular password)
-# Go to: https://account.live.com/proofs/manage/additional
-# Generate new App Password for "Mail" application
+---
 
-# 2. Verify environment variables
-echo $env:SMTP_USERNAME  # Should be full email address
-echo $env:SMTP_PASSWORD  # Should be App Password (16 characters)
-echo $env:SMTP_HOST      # Should be smtp.outlook.com
+## 🌐 API Endpoints
 
-# 3. Test SMTP connection
-curl http://localhost:5030/api/email/health
+### **📧 Email Sending**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/email/send-with-template` | Send with TMS template |
+| POST | `/api/email/send-with-documents` | Send with CMS attachments |
+| POST | `/api/email/send-tms-html-and-attachment` | TMS body + TMS attachment |
+| POST | `/api/email/test-template` | Test email template |
+
+### **⚙️ Configuration**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/email/accounts` | List configured accounts |
+| GET | `/api/email/health` | Service health check |
+
+---
+
+## 📝 API Examples
+
+### **Send with TMS Template (EmailHtml)**
+
+```http
+POST /api/email/send-with-template
+Content-Type: application/json
+
+{
+  "toRecipients": ["customer@example.com"],
+  "subject": "Your Policy Documents",
+  "templateId": "template-guid",
+  "propertyValues": {
+    "CustomerName": "John Smith",
+    "PolicyNumber": "POL-2025-001",
+    "SupportEmail": "support@manteq-me.com"
+  },
+  "exportFormat": "EmailHtml"
+}
 ```
 
-### **🔗 Service Integration Issues**
-```powershell
-# Verify TMS is running and accessible
-curl http://localhost:5267/api/templates/health
-
-# Verify CMS is running and accessible  
-curl http://localhost:5000/api/documents/health
-
-# Check Email Service can reach dependencies
-curl http://localhost:5030/api/email/health
-# Should show tmsIntegration: "available" and cmsIntegration: "available"
+**Response:**
+```json
+{
+  "emailId": "email-guid",
+  "message": "Email sent successfully",
+  "status": "Sent",
+  "sentAt": "2025-11-18T14:30:00Z"
+}
 ```
 
-### **📧 Email Not Sending**
-**Common Causes & Solutions:**
-- **SMTP Auth Failed** → Use App Password, not regular password
-- **Invalid Recipients** → Check email address format validation
-- **Template Not Found** → Verify templateId exists in TMS
-- **TMS Unavailable** → Ensure TMS service is running
-- **Generated Content Too Large** → Check email size limits
+### **Send with CMS Document Attachments**
 
-### **🔍 Diagnostic Commands**
-```powershell
-# Check logs for detailed error messages
-# Look for SMTP, TMS, or CMS integration errors in console output
+```http
+POST /api/email/send-with-documents
+Content-Type: application/json
 
-# Test individual components
-curl http://localhost:5267/api/templates/{templateId}/properties  # TMS
-curl http://localhost:5000/api/documents/{documentId}             # CMS
-curl http://localhost:5030/api/email/accounts                     # Email config
+{
+  "toRecipients": ["customer@example.com"],
+  "ccRecipients": ["manager@example.com"],
+  "subject": "Document Delivery",
+  "htmlBody": "<p>Please find attached documents.</p>",
+  "cmsDocumentIds": [
+    "doc-guid-1",
+    "doc-guid-2"
+  ]
+}
 ```
 
-### **� Email Provider Settings**
-**Outlook/Hotmail:**
-- Host: `smtp.outlook.com`
-- Port: `587`
-- SSL: `true`
-- Auth: App Password required
+### **TMS HTML Body + TMS PDF Attachment**
 
-**Gmail:**
-- Host: `smtp.gmail.com`  
-- Port: `587`
-- SSL: `true`
-- Auth: App Password required (2FA must be enabled)
+```http
+POST /api/email/send-tms-html-and-attachment
+Content-Type: application/json
 
-## 🗂️ Project Structure
+{
+  "toRecipients": ["customer@example.com"],
+  "subject": "Your Invoice",
+  "bodyTemplateId": "email-template-guid",
+  "bodyPropertyValues": {
+    "CustomerName": "John Smith",
+    "InvoiceNumber": "INV-2025-001"
+  },
+  "attachmentTemplateId": "invoice-template-guid",
+  "attachmentPropertyValues": {
+    "CustomerName": "John Smith",
+    "InvoiceNumber": "INV-2025-001",
+    "Amount": "1,250.00"
+  },
+  "attachmentExportFormat": "Pdf"
+}
+```
+
+### **Test Email Template**
+
+```http
+POST /api/email/test-template
+Content-Type: application/json
+
+{
+  "templateId": "email-template-guid",
+  "toRecipients": ["test@example.com"],
+  "tmsBodyPropertyValues": {
+    "CustomerName": "Test User"
+  },
+  "tmsAttachmentPropertyValues": {
+    "0": {
+      "CustomerName": "Test User",
+      "DocumentNumber": "DOC-001"
+    }
+  }
+}
+```
+
+---
+
+## 🎯 Email Workflows
+
+### **Workflow 1: TMS EmailHtml (Primary)**
+
+```mermaid
+graph LR
+    A[Email Request] --> B[Get Template from CMS]
+    B --> C[Generate EmailHtml via TMS]
+    C --> D[HTML with Base64 Images]
+    D --> E[Send via SMTP]
+    E --> F[Update Analytics in CMS]
+```
+
+**Use Case**: Customer communications, notifications, reports
+
+### **Workflow 2: CMS Document Attachments**
+
+```mermaid
+graph LR
+    A[Email Request] --> B[Get Documents from CMS]
+    B --> C[Download Files]
+    C --> D[Compose Email with Attachments]
+    D --> E[Send via SMTP]
+```
+
+**Use Case**: Sending existing documents, invoices, contracts
+
+### **Workflow 3: TMS Body + TMS Attachment**
+
+```mermaid
+graph LR
+    A[Email Request] --> B[Generate EmailHtml Body]
+    B --> C[Generate PDF Attachment]
+    C --> D[Compose Email]
+    D --> E[Send via SMTP]
+    E --> F[Cleanup Generated Files]
+```
+
+**Use Case**: Invoice emails with PDF attachments
+
+---
+
+## 🐳 Docker Deployment
+
+### **Dockerfile** (provided)
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+RUN apt-get update && apt-get install -y curl
+WORKDIR /app
+EXPOSE 5030
+
+# Build stages...
+
+ENTRYPOINT ["dotnet", "EmailService.WebApi.dll"]
+```
+
+### **Docker Compose Integration**
+
+```yaml
+services:
+  email-service:
+    build:
+      context: .
+      dockerfile: EmailService.WebApi/Dockerfile
+    environment:
+      - Email__Smtp__Host=${SMTP_HOST}
+      - Email__Smtp__Port=${SMTP_PORT}
+      - Email__Smtp__Username=${SMTP_USERNAME}
+      - Email__Smtp__Password=${SMTP_PASSWORD}
+      - TmsApi__BaseUrl=http://tms-api:5267
+      - CmsApi__BaseUrl=http://cms-api:5000
+    ports:
+      - "5030:5030"
+    depends_on:
+      - tms-api
+      - cms-api
+```
+
+---
+
+## 🧪 Testing
+
+### **Health Check**
+
+```bash
+curl http://localhost:5030/health
+
+# Response
+{
+  "status": "healthy",
+  "service": "EmailService.WebApi",
+  "timestamp": "2025-11-18T10:00:00Z"
+}
+```
+
+### **Test Email**
+
+```bash
+curl -X POST http://localhost:5030/api/email/send-with-template \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toRecipients": ["test@example.com"],
+    "subject": "Test Email",
+    "templateId": "template-guid",
+    "propertyValues": {
+      "CustomerName": "Test User"
+    },
+    "exportFormat": "EmailHtml"
+  }'
+```
+
+---
+
+## 🔧 Development
+
+### **Project Structure**
 
 ```
 EmailService.WebApi/
-├── 📄 appsettings.json              # Email and database configuration
-├── 📄 Program.cs                    # Service setup and DI configuration
-├── 
-├── 📁 Controllers/
-│   └── EmailController.cs           # REST API endpoints
-├── 📁 Services/
-│   ├── EmailService.cs              # Core email sending logic
-│   ├── TmsIntegrationService.cs     # TMS API integration
-│   └── CmsIntegrationService.cs     # CMS API integration
-├── 📁 Models/
-│   ├── EmailRequest.cs              # Request models
-│   ├── EmailResponse.cs             # Response models  
-│   └── EmailConfiguration.cs        # Configuration models
-└── 📁 Infrastructure/
-    └── EmailServiceExtensions.cs    # DI and service registration
+├── Controllers/
+│   └── EmailController.cs             # Email API endpoints
+├── Services/
+│   ├── EmailSendingService.cs         # Main email logic
+│   ├── CmsIntegrationService.cs       # CMS HTTP client
+│   ├── TmsIntegrationService.cs       # TMS HTTP client
+│   └── EmailTemplateIntegrationService.cs  # Template access
+├── HttpClients/
+│   ├── CmsApiClient.cs                # CMS API client
+│   └── TmsApiClient.cs                # TMS API client
+├── Models/
+│   ├── EmailModels.cs                 # Request/response models
+│   └── EmailTemplateDto.cs            # Template DTOs
+├── Infrastructure/
+│   └── EmailServiceApplicationModelProvider.cs  # Filter setup
+├── Program.cs                         # Startup with Polly
+└── Dockerfile                         # Docker configuration
 ```
 
-## � Additional Resources
+### **Key Dependencies**
 
-### **🔗 Related Documentation**
-- **[Main System README](../README.md)** - Complete Manteq Document System overview
-- **[TMS README](../TMS.WebApi/README.md)** - Template Management System (Email Service dependency)
-- **[CMS README](../CMS.WebApi/README.md)** - Content Management System (Email Service dependency)
-- **[Team Developer Guide](../TEAM_GUIDE.md)** - Comprehensive development workflows
-
-### **🌐 API Documentation**
-- **Swagger UI**: http://localhost:5030/swagger (when running)
-- **OpenAPI Spec**: Available at runtime for integration and testing
-
-### **🧪 Testing Tools**
-- **Postman**: Import OpenAPI spec for complete API testing
-- **curl**: Command-line examples shown throughout this document
-- **Email Clients**: Test actual email delivery and formatting
-
-### **📧 Email Testing Services**
-- **Mailtrap**: Test email sending without real delivery
-- **MailHog**: Local SMTP testing server
-- **Gmail/Outlook**: Use separate test accounts for development
+```xml
+<PackageReference Include="MailKit" Version="4.3.0" />
+<PackageReference Include="MimeKit" Version="4.3.0" />
+<PackageReference Include="Polly" Version="8.0.0" />
+<PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+```
 
 ---
 
-## 📞 Support and Contact
+## 🛡️ Resilience Patterns
 
-- **👨‍💻 Lead Developer**: Saleh Shalab  
-- **📧 Email**: salehshalab2@gmail.com
-- **🌐 Repository**: https://github.com/SalehShalab87/Manteq-doc-system
-- **🐛 Issues**: Use GitHub Issues for bug reports and feature requests
+### **Retry Policy**
+
+```csharp
+// 3 retries with exponential backoff
+.WaitAndRetryAsync(3, retryAttempt => 
+    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)))
+```
+
+### **Circuit Breaker**
+
+```csharp
+// Open after 5 failures, keep open for 30 seconds
+.CircuitBreakerAsync(5, TimeSpan.FromSeconds(30))
+```
+
+### **Timeout Management**
+
+```json
+{
+  "TmsApi": { "Timeout": "60" },  // TMS operations slower
+  "CmsApi": { "Timeout": "30" }   // CMS operations faster
+}
+```
 
 ---
 
-## ✅ Status: Production Ready
+## 📞 Support
+
+- **Repository**: https://github.com/SalehShalab87/Manteq-doc-system
+- **Lead Developer**: Saleh Shalab
+- **Email**: salehshalab2@gmail.com
+
+---
+
+## ✅ Production Ready
 
 🎉 **Email Service is fully operational and production-ready!**
 
-**✅ Core Features Complete:**
-- Template-based email generation with TMS integration
-- EmailHtml format with base64 embedded images  
+**✅ Core Features**:
+- Template-based email sending
+- TMS EmailHtml generation integration
 - CMS document attachment support
 - Multi-account SMTP configuration
-- Comprehensive error handling and logging
+- Resilient HTTP communication
 
-**✅ Integration Status:**
-- ✅ TMS Integration: EmailHtml and document attachment generation
-- ✅ CMS Integration: Document retrieval and attachment  
-- ✅ SMTP Configuration: Multi-provider support with App Passwords
-- ✅ Database Access: Shared database with read-only operations
-- ✅ Health Monitoring: Complete service and dependency health checks
+**✅ Microservices Integration**:
+- HTTP clients with Polly resilience
+- Stateless architecture
+- Independent scaling
+- Docker support with health checks
 
-**🚀 Ready for production deployment as the email automation layer of the Manteq Document System, providing seamless integration between templates, documents, and email delivery.**
+🚀 **Orchestrates TMS and CMS to deliver powerful email automation!**

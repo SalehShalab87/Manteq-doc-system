@@ -1,12 +1,9 @@
-using CMS.WebApi.Models;
-using CMS.WebApi.Services;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.CustomProperties;
 using TMS.WebApi.Models;
+using TMS.WebApi.HttpClients;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using CmsTemplate = CMS.WebApi.Models.Template;
-using CmsDocument = CMS.WebApi.Models.Document;
 
 namespace TMS.WebApi.Services
 {
@@ -24,20 +21,17 @@ namespace TMS.WebApi.Services
 
     public class TemplateService : ITemplateService
     {
-        private readonly IDocumentService _cmsDocumentService;
-        private readonly ICmsTemplateService _cmsTemplateService;
+        private readonly ICmsApiClient _cmsApiClient;
         private readonly ILogger<TemplateService> _logger;
         private readonly TmsSettings _tmsSettings;
         private readonly string _tempUploadPath;
 
         public TemplateService(
-            IDocumentService cmsDocumentService,
-            ICmsTemplateService cmsTemplateService,
+            ICmsApiClient cmsApiClient,
             ILogger<TemplateService> logger,
             IOptions<TmsSettings> tmsSettings)
         {
-            _cmsDocumentService = cmsDocumentService;
-            _cmsTemplateService = cmsTemplateService;
+            _cmsApiClient = cmsApiClient;
             _logger = logger;
             
             // Create temp upload directory
@@ -76,31 +70,40 @@ namespace TMS.WebApi.Services
                     var placeholders = await ExtractPlaceholdersFromPathAsync(tempFilePath);
                     _logger.LogInformation("Extracted {PlaceholderCount} placeholders from template", placeholders.Count);
 
-                    // Register the template file in CMS Document system
-                    var documentRequest = new RegisterDocumentRequest
+                    // Register the template file in CMS Document system via HTTP API
+                    using var memoryStream = new MemoryStream();
+                    await request.TemplateFile.CopyToAsync(memoryStream);
+                    var fileBytes = memoryStream.ToArray();
+
+                    var documentRequest = new HttpClients.RegisterDocumentRequest
                     {
                         Name = request.TemplateFile.FileName,
                         Type = GetDocumentType(fileExtension),
-                        Content = request.TemplateFile
+                        CreatedBy = request.CreatedBy,
+                        FileContent = fileBytes,
+                        FileName = request.TemplateFile.FileName,
+                        MimeType = request.TemplateFile.ContentType
                     };
 
-                    var documentResponse = await _cmsDocumentService.RegisterDocumentAsync(documentRequest);
+                    var documentResponse = await _cmsApiClient.RegisterDocumentAsync(documentRequest);
                     _logger.LogInformation("Template file registered in CMS with ID: {DocumentId}", documentResponse.Id);
 
-                    // Create Template record in CMS
-                    var template = new CmsTemplate
+                    // Create Template record in CMS via HTTP API
+                    var templateRequest = new HttpClients.CreateTemplateRequest
                     {
                         Name = request.Name,
                         Description = request.Description,
                         Category = request.Category,
                         CmsDocumentId = documentResponse.Id,
                         Placeholders = placeholders,
+                        TemplateType = (int)GetTmsDocumentTypeFromPath(request.TemplateFile.FileName),
+                        DefaultExportFormat = (int)ExportFormat.Pdf,
                         CreatedBy = request.CreatedBy,
                         UpdatedBy = request.CreatedBy,
                         IsActive = true
                     };
 
-                    var savedTemplate = await _cmsTemplateService.CreateTemplateAsync(template);
+                    var savedTemplate = await _cmsApiClient.CreateTemplateAsync(templateRequest);
                     
                     _logger.LogInformation("Template registered successfully with ID: {TemplateId}", savedTemplate.Id);
 
@@ -132,14 +135,14 @@ namespace TMS.WebApi.Services
         {
             try
             {
-                var template = await _cmsTemplateService.GetTemplateByIdAsync(templateId);
+                var template = await _cmsApiClient.GetTemplateByIdAsync(templateId);
                 if (template == null)
                 {
                     return null;
                 }
 
-                // Get the associated document download URL
-                var documentResponse = await _cmsDocumentService.RetrieveDocumentAsync(template.CmsDocumentId);
+                // Get the associated document
+                var documentResponse = await _cmsApiClient.GetDocumentAsync(template.CmsDocumentId);
                 
                 return new RetrieveTemplateResponse
                 {
@@ -150,11 +153,11 @@ namespace TMS.WebApi.Services
                     CmsDocumentId = template.CmsDocumentId,
                     Placeholders = template.Placeholders,
                     CreatedAt = template.CreatedAt,
-                    UpdatedAt = template.UpdatedAt,
+                    UpdatedAt = template.UpdatedAt ?? DateTime.MinValue,
                     IsActive = template.IsActive,
                     CreatedBy = template.CreatedBy,
                     UpdatedBy = template.UpdatedBy == null ? "" : template.UpdatedBy,
-                    TemplateDownloadUrl = documentResponse?.DownloadUrl ?? ""
+                    TemplateDownloadUrl = $"/api/documents/{template.CmsDocumentId}/download"
                 };
             }
             catch (Exception ex)
@@ -168,12 +171,12 @@ namespace TMS.WebApi.Services
         {
             try
             {
-                var templates = await _cmsTemplateService.GetAllTemplatesAsync();
+                var templates = await _cmsApiClient.GetAllTemplatesAsync();
                 var responses = new List<RetrieveTemplateResponse>();
 
                 foreach (var template in templates)
                 {
-                    var documentResponse = await _cmsDocumentService.RetrieveDocumentAsync(template.CmsDocumentId);
+                    var documentResponse = await _cmsApiClient.GetDocumentAsync(template.CmsDocumentId);
                     
                     responses.Add(new RetrieveTemplateResponse
                     {
@@ -184,11 +187,11 @@ namespace TMS.WebApi.Services
                         CmsDocumentId = template.CmsDocumentId,
                         Placeholders = template.Placeholders,
                         CreatedAt = template.CreatedAt,
-                        UpdatedAt = template.UpdatedAt,
+                        UpdatedAt = template.UpdatedAt ?? DateTime.MinValue,
                         IsActive = template.IsActive,
                         CreatedBy = template.CreatedBy,
-                        UpdatedBy = template.UpdatedBy == null ? "" : template.UpdatedBy,
-                        TemplateDownloadUrl = documentResponse?.DownloadUrl ?? ""
+                        UpdatedBy = template.UpdatedBy ?? "",
+                        TemplateDownloadUrl = $"/api/documents/{template.CmsDocumentId}/download"
                     });
                 }
 
@@ -205,14 +208,14 @@ namespace TMS.WebApi.Services
         {
             try
             {
-                var template = await _cmsTemplateService.GetTemplateByIdAsync(templateId);
+                var template = await _cmsApiClient.GetTemplateByIdAsync(templateId);
                 if (template == null)
                 {
                     return null;
                 }
 
-                // Get the template file to extract current property values
-                var documentFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(template.CmsDocumentId);
+                // Get the template file path via HTTP API
+                var documentFilePath = await _cmsApiClient.GetDocumentFilePathAsync(template.CmsDocumentId);
                 var currentValues = await GetCustomPropertiesWithValuesAsync(documentFilePath);
 
                 var properties = template.Placeholders.Select(placeholder => new TemplateProperty
@@ -242,14 +245,14 @@ namespace TMS.WebApi.Services
         {
             try
             {
-                var template = await _cmsTemplateService.GetTemplateByIdAsync(templateId);
+                var template = await _cmsApiClient.GetTemplateByIdAsync(templateId);
                 if (template == null)
                 {
                     return false;
                 }
 
-                // Delete the template from CMS (this might cascade to the document)
-                var result = await _cmsTemplateService.DeleteTemplateAsync(templateId);
+                // Delete template via HTTP API
+                var result = await _cmsApiClient.DeleteTemplateAsync(templateId);
                 
                 _logger.LogInformation("Template deleted: {TemplateId}, Success: {Success}", templateId, result);
                 return result;

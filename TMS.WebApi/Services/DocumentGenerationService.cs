@@ -1,5 +1,5 @@
 using TMS.WebApi.Models;
-using CMS.WebApi.Services;
+using TMS.WebApi.HttpClients;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml.CustomProperties;
@@ -25,8 +25,7 @@ namespace TMS.WebApi.Services
     public class DocumentGenerationService : IDocumentGenerationService
     {
         private readonly ITemplateService _templateService;
-        private readonly IDocumentService _cmsDocumentService;
-        private readonly ICmsTemplateService _cmsTemplateService;
+        private readonly ICmsApiClient _cmsApiClient;
         private readonly ILogger<DocumentGenerationService> _logger;
         private readonly TmsSettings _tmsSettings;
         private readonly string _outputDirectory;
@@ -36,14 +35,12 @@ namespace TMS.WebApi.Services
 
         public DocumentGenerationService(
             ITemplateService templateService,
-            IDocumentService cmsDocumentService,
-            ICmsTemplateService cmsTemplateService,
+            ICmsApiClient cmsApiClient,
             ILogger<DocumentGenerationService> logger,
             IOptions<TmsSettings> tmsSettings)
         {
             _templateService = templateService;
-            _cmsDocumentService = cmsDocumentService;
-            _cmsTemplateService = cmsTemplateService;
+            _cmsApiClient = cmsApiClient;
             _logger = logger;
             _tmsSettings = tmsSettings.Value;
             
@@ -85,8 +82,8 @@ namespace TMS.WebApi.Services
                     throw new ArgumentException($"Template with ID '{request.TemplateId}' not found");
                 }
 
-                // Get the template file from CMS
-                var templateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(template.CmsDocumentId);
+                // Get the template file from CMS via HTTP API
+                var templateFilePath = await _cmsApiClient.GetDocumentFilePathAsync(template.CmsDocumentId);
                 if (!File.Exists(templateFilePath))
                 {
                     throw new FileNotFoundException($"Template file not found: {templateFilePath}");
@@ -144,7 +141,7 @@ namespace TMS.WebApi.Services
                     {
                         try
                         {
-                            await _cmsTemplateService.IncrementSuccessCountAsync(request.TemplateId);
+                            await _cmsApiClient.IncrementSuccessCountAsync(request.TemplateId);
                             _logger.LogDebug("Template success count incremented for: {TemplateId}", request.TemplateId);
                         }
                         catch (Exception ex)
@@ -184,7 +181,7 @@ namespace TMS.WebApi.Services
                 {
                     try
                     {
-                        await _cmsTemplateService.IncrementFailureCountAsync(request.TemplateId);
+                        await _cmsApiClient.IncrementFailureCountAsync(request.TemplateId);
                         _logger.LogDebug("Template failure count incremented for: {TemplateId}", request.TemplateId);
                     }
                     catch (Exception statEx)

@@ -1,5 +1,11 @@
 # Email Service Web API Dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+
+# Install curl for healthchecks
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 EXPOSE 5030
 
@@ -8,9 +14,9 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY ["ManteqDocumentSystem.sln", "./"]
-COPY ["CMS.Webapi/CMS.WebApi.csproj", "CMS.Webapi/"]
-COPY ["TMS.WebApi/TMS.WebApi.csproj", "TMS.WebApi/"]
 COPY ["EmailService.WebApi/EmailService.WebApi.csproj", "EmailService.WebApi/"]
+
+# Restore EmailService project (no CMS/TMS dependencies)
 RUN dotnet restore "EmailService.WebApi/EmailService.WebApi.csproj"
 
 # Copy all source code
@@ -21,14 +27,10 @@ WORKDIR "/src/EmailService.WebApi"
 RUN dotnet build "EmailService.WebApi.csproj" -c Release -o /app/build
 
 FROM build AS publish
-# Publish Email Service - this will include both CMS.WebApi.dll and TMS.WebApi.dll as dependencies
-RUN dotnet publish "EmailService.WebApi.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:CopyLocalLockFileAssemblies=true
+RUN dotnet publish "EmailService.WebApi.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
-
-# Create storage directories
-RUN mkdir -p /app/storage/EmailAttachments
 
 COPY --from=publish /app/publish .
 

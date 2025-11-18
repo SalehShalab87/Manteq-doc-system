@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TMS.WebApi.Models;
 using TMS.WebApi.Services;
-using CMS.WebApi.Services;
-using CMS.WebApi.Models;
+using TMS.WebApi.HttpClients;
 
 namespace TMS.WebApi.Controllers
 {
@@ -14,7 +13,7 @@ namespace TMS.WebApi.Controllers
     private readonly ITemplateService _templateService;
     private readonly IDocumentGenerationService _documentGenerationService;
     private readonly IDocumentEmbeddingService _documentEmbeddingService;
-    private readonly ICmsTemplateService _cmsTemplateService;
+    private readonly ICmsApiClient _cmsApiClient;
     private readonly IExcelService _excelService;
     private readonly ILogger<TemplatesController> _logger;
 
@@ -22,14 +21,14 @@ namespace TMS.WebApi.Controllers
         ITemplateService templateService,
         IDocumentGenerationService documentGenerationService,
         IDocumentEmbeddingService documentEmbeddingService,
-        ICmsTemplateService cmsTemplateService,
+        ICmsApiClient cmsApiClient,
         IExcelService excelService,
         ILogger<TemplatesController> logger)
     {
         _templateService = templateService;
         _documentGenerationService = documentGenerationService;
         _documentEmbeddingService = documentEmbeddingService;
-        _cmsTemplateService = cmsTemplateService;
+        _cmsApiClient = cmsApiClient;
         _excelService = excelService;
         _logger = logger;
     }        /// <summary>
@@ -184,7 +183,15 @@ namespace TMS.WebApi.Controllers
                         var filePath = await _documentGenerationService.GetGeneratedDocumentPathAsync(response.GenerationId);
                         var fileName = Path.GetFileName(filePath);
                         var contentType = GetContentType(filePath);
-                        
+
+                        // Expose generation id to caller in the response headers when streaming file
+                        // so clients can correlate the download with the generated metadata.
+                        try
+                        {
+                            Response.Headers["X-Generation-Id"] = response.GenerationId.ToString();
+                        }
+                        catch { /* ignore header write failures */ }
+
                         _logger.LogInformation("📥 Auto-downloading generated document: {FileName} ({FileSize} KB)", 
                             fileName, fileBytes.Length / 1024);
 
@@ -365,8 +372,8 @@ namespace TMS.WebApi.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult GetTemplateTypes()
         {
-            var types = Enum.GetValues(typeof(TemplateType))
-                .Cast<TemplateType>()
+            var types = Enum.GetValues(typeof(Models.DocumentType))
+                .Cast<Models.DocumentType>()
                 .Select(t => new { Value = (int)t, Name = t.ToString() })
                 .ToList();
             
@@ -399,7 +406,7 @@ namespace TMS.WebApi.Controllers
         {
             try
             {
-                var template = await _cmsTemplateService.GetTemplateByIdAsync(id);
+                var template = await _cmsApiClient.GetTemplateByIdAsync(id);
                 if (template == null)
                     return NotFound(new { error = "Template not found" });
                 
@@ -436,7 +443,7 @@ namespace TMS.WebApi.Controllers
         {
             try
             {
-                var result = await _cmsTemplateService.IncrementSuccessCountAsync(id);
+                var result = await _cmsApiClient.IncrementSuccessCountAsync(id);
                 if (!result)
                     return NotFound(new { error = "Template not found" });
                 
@@ -460,7 +467,7 @@ namespace TMS.WebApi.Controllers
         {
             try
             {
-                var result = await _cmsTemplateService.IncrementFailureCountAsync(id);
+                var result = await _cmsApiClient.IncrementFailureCountAsync(id);
                 if (!result)
                     return NotFound(new { error = "Template not found" });
                 
@@ -511,6 +518,12 @@ namespace TMS.WebApi.Controllers
                         var fileName = result.FileName ?? $"EmbeddedDocument_{result.GenerationId:N}.pdf";
                         var contentType = GetContentType(fileName);
                         
+                        try
+                        {
+                            Response.Headers["X-Generation-Id"] = result.GenerationId.ToString();
+                        }
+                        catch { }
+
                         _logger.LogInformation("📥 Auto-downloading embedded document: {FileName} ({FileSize} KB)", 
                             fileName, fileBytes.Length / 1024);
 
@@ -668,6 +681,11 @@ namespace TMS.WebApi.Controllers
                 // Auto-download the generated file
                 var fileBytes = await _documentGenerationService.DownloadGeneratedDocumentAsync(response.GenerationId);
                 var contentType = GetContentType(response.FileName);
+                try
+                {
+                    Response.Headers["X-Generation-Id"] = response.GenerationId.ToString();
+                }
+                catch { }
 
                 return File(fileBytes, contentType, response.FileName);
             }
@@ -732,6 +750,12 @@ namespace TMS.WebApi.Controllers
                         var fileBytes = await _documentGenerationService.DownloadGeneratedDocumentAsync(response.GenerationId);
                         var contentType = GetContentType(response.FileName);
                         
+                        try
+                        {
+                            Response.Headers["X-Generation-Id"] = response.GenerationId.ToString();
+                        }
+                        catch { }
+
                         _logger.LogInformation("📥 Auto-downloading test document: {FileName}", response.FileName);
 
                         return File(fileBytes, contentType, response.FileName);
@@ -765,19 +789,19 @@ namespace TMS.WebApi.Controllers
         [ProducesResponseType(typeof(Dictionary<string, string>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> ParseExcelToJson([FromForm] IFormFile excelFile)
+        public async Task<IActionResult> ParseExcelToJson([FromForm] ParseExcelRequest request)
         {
             try
             {
-                if (excelFile == null || excelFile.Length == 0)
+                if (request?.ExcelFile == null || request.ExcelFile.Length == 0)
                     return BadRequest(new { error = "Excel file is required" });
 
-                if (!excelFile.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                if (!request.ExcelFile.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
                     return BadRequest(new { error = "Only .xlsx files are supported" });
 
                 // Read Excel and convert to property values dictionary
                 Dictionary<string, string> propertyValues;
-                using (var stream = excelFile.OpenReadStream())
+                using (var stream = request.ExcelFile.OpenReadStream())
                 {
                     propertyValues = await _excelService.ReadExcelToJsonAsync(stream);
                 }
@@ -786,7 +810,7 @@ namespace TMS.WebApi.Controllers
                     return BadRequest(new { error = "No property values found in Excel file" });
 
                 _logger.LogInformation("📊 Parsed Excel file: {FileName}, {PropertyCount} properties", 
-                    excelFile.FileName, propertyValues.Count);
+                    request.ExcelFile.FileName, propertyValues.Count);
 
                 return Ok(propertyValues);
             }
@@ -797,7 +821,7 @@ namespace TMS.WebApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error parsing Excel file: {FileName}", excelFile?.FileName);
+                _logger.LogError(ex, "Error parsing Excel file: {FileName}", request?.ExcelFile?.FileName);
                 return StatusCode(500, new { error = "Internal server error occurred" });
             }
         }

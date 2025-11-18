@@ -636,10 +636,13 @@ export class EmailTemplatesComponent implements OnInit {
 
   getBodySourceLabel(type: EmailBodySourceType): string {
     switch (type) {
+      case 0:
       case EmailBodySourceType.PlainText:
         return 'Plain Text';
+      case 1:
       case EmailBodySourceType.TmsTemplate:
         return 'TMS Template';
+      case 2:
       case EmailBodySourceType.CustomTemplate:
         return 'Custom Template';
       default:
@@ -670,7 +673,7 @@ export class EmailTemplatesComponent implements OnInit {
     });
     
     // Load attachments from API
-    this.emailApiService.getEmailTemplateAttachments(template.id).subscribe({
+    this.emailApiService.getTemplateAttachments(template.id).subscribe({
       next: (attachments: EmailTemplateAttachment[]) => {
         if (attachments && attachments.length > 0) {
           const mappedAttachments = attachments.map((att: EmailTemplateAttachment) => ({

@@ -1,5 +1,5 @@
 using TMS.WebApi.Models;
-using CMS.WebApi.Services;
+using TMS.WebApi.HttpClients;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
@@ -18,7 +18,7 @@ namespace TMS.WebApi.Services
     {
         private readonly ITemplateService _templateService;
         private readonly IDocumentGenerationService _documentGenerationService;
-        private readonly IDocumentService _cmsDocumentService;
+        private readonly ICmsApiClient _cmsApiClient;
         private readonly ILogger<DocumentEmbeddingService> _logger;
         private readonly TmsSettings _tmsSettings;
         private readonly string _outputDirectory;
@@ -28,13 +28,13 @@ namespace TMS.WebApi.Services
         public DocumentEmbeddingService(
             ITemplateService templateService,
             IDocumentGenerationService documentGenerationService,
-            IDocumentService cmsDocumentService,
+            ICmsApiClient cmsApiClient,
             ILogger<DocumentEmbeddingService> logger,
             IOptions<TmsSettings> tmsSettings)
         {
             _templateService = templateService;
             _documentGenerationService = documentGenerationService;
-            _cmsDocumentService = cmsDocumentService;
+            _cmsApiClient = cmsApiClient;
             _logger = logger;
             _tmsSettings = tmsSettings.Value;
             
@@ -82,7 +82,7 @@ namespace TMS.WebApi.Services
                 }
 
                 // Validate that main template is Word document (embedding only works with Word)
-                var mainTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(mainTemplate.CmsDocumentId);
+                var mainTemplateFilePath = await _cmsApiClient.GetDocumentFilePathAsync(mainTemplate.CmsDocumentId);
                 var documentType = GetDocumentTypeFromPath(mainTemplateFilePath);
                 
                 if (documentType != Models.DocumentType.Word)
@@ -189,8 +189,8 @@ namespace TMS.WebApi.Services
             var workingFileName = $"working_main_{timestamp}_{generationId:N}.docx";
             var workingPath = Path.Combine(_tempDirectory, workingFileName);
 
-            // Get the main template file from CMS
-            var mainTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(mainTemplate.CmsDocumentId);
+            // Get the main template file from CMS via HTTP API
+            var mainTemplateFilePath = await _cmsApiClient.GetDocumentFilePathAsync(mainTemplate.CmsDocumentId);
             
             // Copy main template to working location
             File.Copy(mainTemplateFilePath, workingPath, true);
@@ -221,8 +221,8 @@ namespace TMS.WebApi.Services
                 return $"❌ Embed template with ID '{embedding.EmbedTemplateId}' not found. Skipping.";
             }
 
-            // Get embed template file path
-            var embedTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(embedTemplate.CmsDocumentId);
+            // Get embed template file path via HTTP API
+            var embedTemplateFilePath = await _cmsApiClient.GetDocumentFilePathAsync(embedTemplate.CmsDocumentId);
             var embedDocumentType = GetDocumentTypeFromPath(embedTemplateFilePath);
 
             if (embedDocumentType != Models.DocumentType.Word)
@@ -260,7 +260,7 @@ namespace TMS.WebApi.Services
             var tempEmbedPath = Path.Combine(_tempDirectory, tempEmbedFileName);
 
             // Get the embed template file from CMS and copy
-            var embedTemplateFilePath = await _cmsDocumentService.GetDocumentFilePathAsync(embedTemplate.CmsDocumentId);
+            var embedTemplateFilePath = await _cmsApiClient.GetDocumentFilePathAsync(embedTemplate.CmsDocumentId);
             File.Copy(embedTemplateFilePath, tempEmbedPath, true);
 
             // Replace placeholders in embed document
@@ -745,3 +745,4 @@ namespace TMS.WebApi.Services
         }
     }
 }
+

@@ -12,12 +12,12 @@ public class TemplateFileUploadRequest
 }
 
 /// <summary>
-/// Model for test generation with Excel file
+/// Model for uploading an Excel file from a form
 /// </summary>
-public class TestGenerationRequest
+public class ParseExcelRequest
 {
     /// <summary>
-    /// Excel file containing property values for test generation
+    /// Excel file (.xlsx) to parse into property values
     /// </summary>
     public IFormFile ExcelFile { get; set; } = null!;
 }
