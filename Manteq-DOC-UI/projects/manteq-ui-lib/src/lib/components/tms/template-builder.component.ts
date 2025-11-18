@@ -372,13 +372,18 @@ export class TemplateBuilderComponent implements OnInit {
     if (!confirmed) return;
 
     this.notificationService.showLoading(`${action.charAt(0).toUpperCase() + action.slice(1)}ing template...`);
-    this.tmsApi.toggleTemplateStatus(template.id, newStatus).subscribe({
+    
+    const observable = newStatus 
+      ? this.tmsApi.activateTemplate(template.id)
+      : this.tmsApi.deactivateTemplate(template.id);
+    
+    observable.subscribe({
       next: () => {
         this.notificationService.hideLoading();
         this.notificationService.success(`Template ${action}d successfully`);
         this.loadTemplates();
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error(`Error ${action}ing template:`, error);
         this.notificationService.hideLoading();
         this.notificationService.error(`Failed to ${action} template`);
@@ -437,7 +442,7 @@ export class TemplateBuilderComponent implements OnInit {
         this.notificationService.success('Template moved to trash');
         this.loadTemplates();
       },
-      error: (error) => {
+        error: (error: any) => {
         console.error('Error moving template to trash:', error);
         this.notificationService.hideLoading();
         this.notificationService.error('Failed to move template to trash');

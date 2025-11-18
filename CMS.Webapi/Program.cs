@@ -18,49 +18,53 @@ if (File.Exists(".env"))
     }
 }
 
-// Build database connection string from environment variables
-var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? "YOUR_SERVER\\SQLEXPRESS";
-var dbDatabase = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "CmsDatabase_Dev";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-var dbIntegratedSecurity = Environment.GetEnvironmentVariable("DB_INTEGRATED_SECURITY") ?? "true";
-var dbTrustServerCertificate = Environment.GetEnvironmentVariable("DB_TRUST_SERVER_CERTIFICATE") ?? "true";
-
-// For local SQL Server Express, use named pipes for better reliability
+// Build PostgreSQL connection string from environment variables or appsettings
 string connectionString;
-if (dbServer.Contains("SQLEXPRESS") && (dbServer.StartsWith("localhost") || dbServer.Contains(Environment.MachineName)))
+
+var pgHost = Environment.GetEnvironmentVariable("POSTGRES_HOST");
+var pgPort = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
+var pgDatabase = Environment.GetEnvironmentVariable("POSTGRES_DB");
+var pgUser = Environment.GetEnvironmentVariable("POSTGRES_USER");
+var pgPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD");
+var pgSslMode = Environment.GetEnvironmentVariable("POSTGRES_SSL_MODE") ?? "Prefer";
+
+if (!string.IsNullOrEmpty(pgHost) && !string.IsNullOrEmpty(pgDatabase))
 {
-    connectionString = $"Data Source=np:\\\\.\\pipe\\MSSQL$SQLEXPRESS\\sql\\query;Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-    Console.WriteLine($"🔧 Using named pipes connection for local SQLEXPRESS");
+    // Build from environment variables (Docker/Production)
+    connectionString = $"Host={pgHost};Port={pgPort};Database={pgDatabase};Username={pgUser};Password={pgPassword};SSL Mode={pgSslMode}";
+    Console.WriteLine($"🔧 CMS using PostgreSQL: {pgHost}:{pgPort}/{pgDatabase}");
 }
 else
 {
-    // Check if we should use SQL Authentication or Windows Authentication
-    if (dbIntegratedSecurity.ToLower() == "false" && !string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPassword))
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};User ID={dbUser};Password={dbPassword};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 Using SQL Authentication for server: {dbServer}");
-    }
-    else
-    {
-        connectionString = $"Data Source={dbServer};Initial Catalog={dbDatabase};Integrated Security={dbIntegratedSecurity};Persist Security Info=False;TrustServerCertificate={dbTrustServerCertificate};Connection Timeout=30;";
-        Console.WriteLine($"🔧 Using Integrated Security for server: {dbServer}");
-    }
+    // Use appsettings.json (Development)
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Database connection string not configured");
+    Console.WriteLine("🔧 CMS using connection string from appsettings.json");
 }
-
-Console.WriteLine($"📄 CMS Database: {dbDatabase}");
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
-// Add Entity Framework
+// Add Entity Framework with PostgreSQL
 builder.Services.AddDbContext<CmsDbContext>(options =>
-    options.UseSqlServer(connectionString));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorCodesToAdd: null
+        );
+        npgsqlOptions.CommandTimeout(30);
+    });
+});
 
 // Add custom services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<IEmailTemplateFileService, EmailTemplateFileService>();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

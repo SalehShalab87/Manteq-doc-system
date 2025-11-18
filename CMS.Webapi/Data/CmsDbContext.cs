@@ -20,6 +20,12 @@ namespace CMS.WebApi.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // PostgreSQL uses lowercase table names by convention
+            modelBuilder.Entity<Document>().ToTable("documents");
+            modelBuilder.Entity<Template>().ToTable("templates");
+            modelBuilder.Entity<EmailTemplate>().ToTable("email_templates");
+            modelBuilder.Entity<EmailTemplateAttachment>().ToTable("email_template_attachments");
+
             // Configure Document entity
             modelBuilder.Entity<Document>(entity =>
             {

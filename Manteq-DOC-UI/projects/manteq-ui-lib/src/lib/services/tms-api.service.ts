@@ -18,6 +18,8 @@ export class TmsApiService {
   private http = inject(HttpClient);
   private baseUrl = API_BASE_URLS.TMS;
 
+  // ========== TEMPLATE REGISTRATION & MANAGEMENT ==========
+
   /**
    * Register a new template
    */
@@ -65,6 +67,45 @@ export class TmsApiService {
   }
 
   /**
+   * Activate template
+   */
+  activateTemplate(id: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_INCREMENT_SUCCESS(id)}`,
+      {}
+    );
+  }
+
+  /**
+   * Deactivate template
+   */
+  deactivateTemplate(id: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_DELETE(id)}`
+    );
+  }
+
+  /**
+   * Delete template (soft delete)
+   */
+  deleteTemplate(id: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_DELETE(id)}`
+    );
+  }
+
+  /**
+   * Get template analytics
+   */
+  getTemplateAnalytics(id: string): Observable<any> {
+    return this.http.get(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_ANALYTICS(id)}`
+    );
+  }
+
+  // ========== DOCUMENT GENERATION ==========
+
+  /**
    * Generate document from template
    */
   generateDocument(request: DocumentGenerationRequest): Observable<DocumentGenerationResponse> {
@@ -85,6 +126,18 @@ export class TmsApiService {
   }
 
   /**
+   * Generate document with embeddings
+   */
+  generateDocumentWithEmbeddings(request: any): Observable<DocumentGenerationResponse> {
+    return this.http.post<DocumentGenerationResponse>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_GENERATE_WITH_EMBEDDINGS}`,
+      request
+    );
+  }
+
+  // ========== PLACEHOLDER & FILE OPERATIONS ==========
+
+  /**
    * Download template placeholders as Excel
    */
   downloadPlaceholdersExcel(id: string): Observable<Blob> {
@@ -99,58 +152,43 @@ export class TmsApiService {
    */
   extractPlaceholdersFromFile(file: File): Observable<Blob> {
     const formData = new FormData();
-    formData.append('templateFile', file);
+    formData.append('TemplateFile', file);
 
     return this.http.post(
-      `${this.baseUrl}/api/templates/extract-placeholders`,
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_EXTRACT_PLACEHOLDERS}`,
       formData,
       { responseType: 'blob' }
     );
   }
 
   /**
-   * Toggle template active status
+   * Parse Excel file and return property values as JSON
    */
-  toggleTemplateStatus(id: string, isActive: boolean): Observable<void> {
-    const endpoint = isActive 
-      ? `/api/templates/${id}/activate` 
-      : `/api/templates/${id}/deactivate`;
-    return this.http.post<void>(`${this.baseUrl}${endpoint}`, {});
-  }
+  parseExcelToJson(excelFile: File): Observable<Record<string, string>> {
+    const formData = new FormData();
+    formData.append('ExcelFile', excelFile);
 
-  /**
-   * Soft delete template (move to trash)
-   */
-  deleteTemplate(id: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_BY_ID(id)}`
+    return this.http.post<Record<string, string>>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_PARSE_EXCEL}`,
+      formData
     );
   }
 
-  /**
-   * Get template types
-   */
-  getTemplateTypes(): Observable<{ value: number; name: string }[]> {
-    return this.http.get<{ value: number; name: string }[]>(
-      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATE_TYPES}`
-    );
-  }
+  // ========== TESTING ENDPOINTS ==========
 
   /**
-   * Get export formats
+   * Test template without saving - uploads template and filled Excel
    */
-  getExportFormats(): Observable<{ value: number; name: string }[]> {
-    return this.http.get<{ value: number; name: string }[]>(
-      `${this.baseUrl}${API_ENDPOINTS.TMS.EXPORT_FORMATS}`
-    );
-  }
+  testTemplateWithoutSaving(templateFile: File, excelFile: File, exportFormat: ExportFormat): Observable<Blob> {
+    const formData = new FormData();
+    formData.append('TemplateFile', templateFile);
+    formData.append('ExcelFile', excelFile);
+    formData.append('ExportFormat', exportFormat.toString());
 
-  /**
-   * Get template analytics
-   */
-  getTemplateAnalytics(id: string): Observable<any> {
-    return this.http.get(
-      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_ANALYTICS(id)}`
+    return this.http.post(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATES_TEST_TEMPLATE}`,
+      formData,
+      { responseType: 'blob' }
     );
   }
 
@@ -168,32 +206,23 @@ export class TmsApiService {
     );
   }
 
-  /**
-   * Test template without saving - uploads template and filled Excel
-   */
-  testTemplateWithoutSaving(templateFile: File, excelFile: File, exportFormat: ExportFormat): Observable<Blob> {
-    const formData = new FormData();
-    formData.append('TemplateFile', templateFile);
-    formData.append('ExcelFile', excelFile);
-    formData.append('ExportFormat', exportFormat.toString());
+  // ========== UTILITY ENDPOINTS ==========
 
-    return this.http.post(
-      `${this.baseUrl}/api/templates/test-template`,
-      formData,
-      { responseType: 'blob' }
+  /**
+   * Get template types
+   */
+  getTemplateTypes(): Observable<{ value: number; name: string }[]> {
+    return this.http.get<{ value: number; name: string }[]>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.TEMPLATE_TYPES}`
     );
   }
 
   /**
-   * Parse Excel file and return property values as JSON
+   * Get export formats
    */
-  parseExcelToJson(excelFile: File): Observable<Record<string, string>> {
-    const formData = new FormData();
-    formData.append('excelFile', excelFile);
-
-    return this.http.post<Record<string, string>>(
-      `${this.baseUrl}/api/templates/parse-excel`,
-      formData
+  getExportFormats(): Observable<{ value: number; name: string }[]> {
+    return this.http.get<{ value: number; name: string }[]>(
+      `${this.baseUrl}${API_ENDPOINTS.TMS.EXPORT_FORMATS}`
     );
   }
 }

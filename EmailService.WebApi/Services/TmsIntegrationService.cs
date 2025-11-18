@@ -1,4 +1,5 @@
 using EmailService.WebApi.Models;
+using EmailService.WebApi.HttpClients;
 
 namespace EmailService.WebApi.Services
 {
@@ -7,7 +8,7 @@ namespace EmailService.WebApi.Services
     /// </summary>
     public interface ITmsIntegrationService
     {
-        Task<GeneratedDocument> GenerateDocumentAsync(Guid templateId, Dictionary<string, string> propertyValues, TmsExportFormat exportFormat);
+        Task<GeneratedDocument> GenerateDocumentAsync(Guid templateId, Dictionary<string, string> propertyValues, Models.TmsExportFormat exportFormat);
         Task CleanupGeneratedDocumentAsync(Guid generationId);
     }
 
@@ -23,55 +24,50 @@ namespace EmailService.WebApi.Services
     }
 
     /// <summary>
-    /// Implementation of TMS integration service
+    /// Implementation of TMS integration service using HTTP client
     /// </summary>
     public class TmsIntegrationService : ITmsIntegrationService
     {
-        private readonly TMS.WebApi.Services.IDocumentGenerationService _documentGenerationService;
+        private readonly ITmsApiClient _tmsApiClient;
         private readonly ILogger<TmsIntegrationService> _logger;
 
-        public TmsIntegrationService(TMS.WebApi.Services.IDocumentGenerationService documentGenerationService, ILogger<TmsIntegrationService> logger)
+        public TmsIntegrationService(ITmsApiClient tmsApiClient, ILogger<TmsIntegrationService> logger)
         {
-            _documentGenerationService = documentGenerationService;
+            _tmsApiClient = tmsApiClient;
             _logger = logger;
         }
 
-        public async Task<GeneratedDocument> GenerateDocumentAsync(Guid templateId, Dictionary<string, string> propertyValues, TmsExportFormat exportFormat)
+        public async Task<GeneratedDocument> GenerateDocumentAsync(Guid templateId, Dictionary<string, string> propertyValues, Models.TmsExportFormat exportFormat)
         {
             _logger.LogInformation("Generating document from TMS template: {TemplateId}, Format: {ExportFormat}", templateId, exportFormat);
 
-            var tmsExportFormat = exportFormat switch
-            {
-                TmsExportFormat.Original => TMS.WebApi.Models.ExportFormat.Original,
-                TmsExportFormat.Word => TMS.WebApi.Models.ExportFormat.Word,
-                TmsExportFormat.Html => TMS.WebApi.Models.ExportFormat.Html,
-                TmsExportFormat.EmailHtml => TMS.WebApi.Models.ExportFormat.EmailHtml,
-                TmsExportFormat.Pdf => TMS.WebApi.Models.ExportFormat.Pdf,
-                _ => TMS.WebApi.Models.ExportFormat.Original
-            };
-
-            var tmsRequest = new TMS.WebApi.Models.DocumentGenerationRequest
+            var request = new TmsDocumentGenerationRequest
             {
                 TemplateId = templateId,
                 PropertyValues = propertyValues,
-                ExportFormat = tmsExportFormat,
+                ExportFormat = exportFormat,
                 GeneratedBy = "EmailService"
             };
 
-            var result = await _documentGenerationService.GenerateDocumentAsync(tmsRequest);
+            // Request generation and attempt to receive the file stream in the same response
+            var genResult = await _tmsApiClient.GenerateDocumentAndDownloadAsync(request);
+            var result = genResult.Metadata;
 
-            // If we get here, the generation was successful (it would throw on failure)
-            if (result.GenerationId == Guid.Empty)
+            // If the server streamed the file back, use it; otherwise, fall back to separate download
+            byte[] fileContent = genResult.FileBytes ?? Array.Empty<byte>();
+            if (fileContent.Length == 0)
             {
-                throw new InvalidOperationException($"Failed to generate document: {result.Message}");
-            }
+                if (result.GenerationId == Guid.Empty)
+                {
+                    throw new InvalidOperationException($"Failed to generate document: {result.Message}");
+                }
 
-            // Get the file content
-            var fileContent = await _documentGenerationService.DownloadGeneratedDocumentAsync(result.GenerationId);
+                fileContent = await _tmsApiClient.DownloadGeneratedDocumentAsync(result.GenerationId);
+            }
             var content = string.Empty;
 
             // For EmailHtml, read content as string
-            if (exportFormat == TmsExportFormat.EmailHtml)
+            if (exportFormat == Models.TmsExportFormat.EmailHtml)
             {
                 content = System.Text.Encoding.UTF8.GetString(fileContent);
             }

@@ -2,9 +2,9 @@
  * Email body source type enum
  */
 export enum EmailBodySourceType {
-  PlainText = 1,
-  TmsTemplate = 2,
-  CustomTemplate = 3
+  PlainText = 0,
+  TmsTemplate = 1,
+  CustomTemplate = 2
 }
 
 /**
@@ -133,7 +133,7 @@ export interface SendEmailWithTemplateRequest {
   plainTextBody?: string;
   htmlBody?: string;
   templateId: string;
-  propertyValues: { [key: string]: string };
+  TmsBodyPropertyValues: { [key: string]: string };
   exportFormat: number;
 }
 
