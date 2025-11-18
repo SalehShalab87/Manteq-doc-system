@@ -15,9 +15,9 @@ export const appConfig: ApplicationConfig = {
       provide: MANTEQ_CONFIG,
       useValue: {
         companyName: 'Manteq Doc Portal',
-        companyLogo: null,
-        primaryColor: '#222831',
-        accentColor: '#112D4E',
+        companyLogo: 'https://cdn-icons-png.flaticon.com/512/861/861377.png',
+        primaryColor: '#195dc2ff',
+        accentColor: '#00050aff',
         fontStyle: 'OpenSans',
         disclaimer: 'Built By ❤️ With Manteq Team',
       },

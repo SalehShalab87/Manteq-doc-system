@@ -1,4 +1,3 @@
-# 🚀 Manteq Document System - Team Developer Guide
 
 **Complete guide for developers working with the Manteq Document Automation Platform**
 

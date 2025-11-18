@@ -33,8 +33,8 @@ export class TrashComponent implements OnInit {
     }
 
     // Filter by search term
-    if (filter.searchTerm) {
-      const term = filter.searchTerm.toLowerCase();
+    if (this.searchTerm()) {
+      const term = this.searchTerm().toLowerCase();
       filtered = filtered.filter(i => 
         i.name.toLowerCase().includes(term) ||
         i.deletedBy?.toLowerCase().includes(term)
@@ -46,7 +46,7 @@ export class TrashComponent implements OnInit {
 
   loading = signal(false);
   currentFilter = signal<{ type?: string; searchTerm?: string }>({ type: 'all' });
-  searchTerm = '';
+  searchTerm = signal('');
   
   // Pagination
   currentPage = signal(1);
@@ -229,8 +229,13 @@ export class TrashComponent implements OnInit {
    * Search items
    */
   searchItems(): void {
-    this.currentFilter.update(f => ({ ...f, searchTerm: this.searchTerm }));
+    this.currentFilter.update(f => ({ ...f, searchTerm: this.searchTerm() }));
     this.currentPage.set(1); // Reset to first page on search
+  }
+
+  updateSearchTerm(event: Event): void {
+    this.searchTerm.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(1);
   }
   
   goToPage(page: number): void {

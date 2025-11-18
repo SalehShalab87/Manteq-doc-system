@@ -19,12 +19,9 @@
                 class="form-select" 
                 [(ngModel)]="uploadForm.type">
                 <option value="">Select type...</option>
-                <option value="Invoice">Invoice</option>
-                <option value="Report">Report</option>
-                <option value="Contract">Contract</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Memo">Memo</option>
-                <option value="Other">Other</option>
+                <option value="CensusList">Census List</option>
+                <option value="FullList">Full List </option>
+                
               </select>
             </div>
             <div class="col-md-3">
@@ -33,7 +30,7 @@
                 type="file" 
                 class="form-control" 
                 (change)="onFileSelected($event)"
-                accept=".pdf,.doc,.docx,.xls,.xlsx">
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif,zip,.rar">
             </div>
             <div class="col-md-2">
               <label class="form-label">&nbsp;</label>
@@ -62,8 +59,8 @@
                     <input 
                       type="text" 
                       class="form-control form-control-sm" 
-                      [(ngModel)]="searchTerm"
-                      (keyup.enter)="searchDocuments()"
+                      [value]="searchTerm()"
+                      (input)="updateSearchTerm($event)"
                       placeholder="Search documents...">
                     <button class="btn btn-outline-secondary btn-sm" type="button" (click)="searchDocuments()">
                       <i class="bi bi-search"></i>
@@ -156,6 +153,12 @@
                             } @else {
                               <i class="bi bi-toggle-off"></i>
                             }
+                          </button>
+                          <button
+                            class="action-btn action-btn-danger"
+                            (click)="deleteDocument(doc)"
+                            title="Delete Document">
+                            <i class="bi bi-trash3"></i>
                           </button>
                         </div>
                       </td>

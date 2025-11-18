@@ -36,7 +36,7 @@ export class EmailTemplatesComponent implements OnInit {
   loading = signal(false);
   showModal = signal(false);
   modalMode = signal<'create' | 'edit'>('create');
-  searchTerm = '';
+  searchTerm = signal('');
   selectedCategory = signal<string>('all');
   selectedStatus = signal<string>('all');
 
@@ -86,8 +86,8 @@ export class EmailTemplatesComponent implements OnInit {
     let filtered = this.allTemplates();
 
     // Filter by search term
-    if (this.searchTerm) {
-      const term = this.searchTerm.toLowerCase();
+    if (this.searchTerm()) {
+      const term = this.searchTerm().toLowerCase();
       filtered = filtered.filter(t =>
         t.name.toLowerCase().includes(term) ||
         t.subject.toLowerCase().includes(term) ||
@@ -606,7 +606,8 @@ export class EmailTemplatesComponent implements OnInit {
     });
   }
 
-  searchTemplates(): void {
+  updateSearchTerm(event: Event): void {
+    this.searchTerm.set((event.target as HTMLInputElement).value);
     this.currentPage.set(1);
   }
 
