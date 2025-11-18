@@ -384,3 +384,4 @@ EmailService.WebApi/.env
 
 # Local configuration files (contain sensitive setup info)
 LOCAL_CONFIG_SETUP.md
+docker-compose.yml
