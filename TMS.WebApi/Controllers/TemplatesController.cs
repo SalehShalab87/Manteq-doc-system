@@ -552,8 +552,9 @@ namespace TMS.WebApi.Controllers
                 if (properties == null)
                     return NotFound(new { error = "Template not found" });
 
-                var placeholders = properties.Properties.Select(p => p.Name).ToList();
-                var excelBytes = await _excelService.GeneratePlaceholdersExcelAsync(placeholders);
+                var placeholders = properties.Properties
+                    .ToDictionary(p => p.Name, p => p.CurrentValue ?? string.Empty);
+                var excelBytes = await _excelService.GeneratePlaceholdersExcelWithValuesAsync(placeholders);
 
                 var fileName = $"Placeholders_{properties.TemplateName}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
 
@@ -566,6 +567,114 @@ namespace TMS.WebApi.Controllers
             {
                 _logger.LogError(ex, "Error generating placeholders Excel: {TemplateId}", id);
                 return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Extract placeholders from a template file without saving it
+        /// Returns Excel file with placeholder names and their default values
+        /// </summary>
+        [HttpPost("extract-placeholders")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ExtractPlaceholdersFromFile([FromForm] TemplateFileUploadRequest request)
+        {
+            try
+            {
+                if (request.TemplateFile == null || request.TemplateFile.Length == 0)
+                    return BadRequest(new { error = "Template file is required" });
+
+                var extension = Path.GetExtension(request.TemplateFile.FileName).ToLowerInvariant();
+                if (extension != ".docx" && extension != ".xlsx")
+                    return BadRequest(new { error = "Only .docx and .xlsx files are supported" });
+
+                // Extract placeholders using the template service
+                Dictionary<string, string> placeholders;
+                using (var stream = request.TemplateFile.OpenReadStream())
+                {
+                    placeholders = await _templateService.ExtractPlaceholdersFromStreamAsync(stream, extension);
+                }
+
+                if (placeholders.Count == 0)
+                {
+                    _logger.LogWarning("No placeholders found in uploaded template file");
+                    return BadRequest(new { error = "No custom properties (placeholders) found in the template file" });
+                }
+
+                // Generate Excel with placeholders and their default values
+                var excelBytes = await _excelService.GeneratePlaceholdersExcelWithValuesAsync(placeholders);
+                var fileName = $"Placeholders_{Path.GetFileNameWithoutExtension(request.TemplateFile.FileName)}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                _logger.LogInformation("Extracted {Count} placeholders from template file: {FileName}", 
+                    placeholders.Count, request.TemplateFile.FileName);
+
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error extracting placeholders from template file");
+                return StatusCode(500, new { error = "Internal server error occurred while extracting placeholders" });
+            }
+        }
+
+        /// <summary>
+        /// Test template without saving - Generate document from template file and filled Excel
+        /// Uploads template file and Excel with values, generates document without storing template
+        /// </summary>
+        [HttpPost("test-template")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> TestTemplateWithoutSaving([FromForm] TestTemplateRequest request)
+        {
+            try
+            {
+                if (request.TemplateFile == null || request.TemplateFile.Length == 0)
+                    return BadRequest(new { error = "Template file is required" });
+
+                if (request.ExcelFile == null || request.ExcelFile.Length == 0)
+                    return BadRequest(new { error = "Excel file with test data is required" });
+
+                var templateExtension = Path.GetExtension(request.TemplateFile.FileName).ToLowerInvariant();
+                if (templateExtension != ".docx" && templateExtension != ".xlsx")
+                    return BadRequest(new { error = "Only .docx and .xlsx template files are supported" });
+
+                if (!request.ExcelFile.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { error = "Only .xlsx files are supported for test data" });
+
+                _logger.LogInformation("Testing template: {TemplateFileName} with Excel: {ExcelFileName}", 
+                    request.TemplateFile.FileName, request.ExcelFile.FileName);
+
+                // Read Excel to get property values
+                Dictionary<string, string> propertyValues;
+                using (var stream = request.ExcelFile.OpenReadStream())
+                {
+                    propertyValues = await _excelService.ReadExcelToJsonAsync(stream);
+                }
+
+                if (propertyValues.Count == 0)
+                    return BadRequest(new { error = "No property values found in Excel file" });
+
+                // Generate document directly from template file without saving
+                var response = await _documentGenerationService.GenerateDocumentFromFileAsync(
+                    request.TemplateFile, 
+                    propertyValues, 
+                    request.ExportFormat);
+
+                _logger.LogInformation("Test document generated: {FileName} with {PropertyCount} properties", 
+                    response.FileName, propertyValues.Count);
+
+                // Auto-download the generated file
+                var fileBytes = await _documentGenerationService.DownloadGeneratedDocumentAsync(response.GenerationId);
+                var contentType = GetContentType(response.FileName);
+
+                return File(fileBytes, contentType, response.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing template without saving");
+                return StatusCode(500, new { error = "Internal server error occurred while testing template" });
             }
         }
 
@@ -644,6 +753,51 @@ namespace TMS.WebApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error test generating document with Excel: {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Parse Excel file and return property values as JSON
+        /// Useful for frontend to extract property values from uploaded Excel files
+        /// </summary>
+        [HttpPost("parse-excel")]
+        [ProducesResponseType(typeof(Dictionary<string, string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ParseExcelToJson([FromForm] IFormFile excelFile)
+        {
+            try
+            {
+                if (excelFile == null || excelFile.Length == 0)
+                    return BadRequest(new { error = "Excel file is required" });
+
+                if (!excelFile.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { error = "Only .xlsx files are supported" });
+
+                // Read Excel and convert to property values dictionary
+                Dictionary<string, string> propertyValues;
+                using (var stream = excelFile.OpenReadStream())
+                {
+                    propertyValues = await _excelService.ReadExcelToJsonAsync(stream);
+                }
+
+                if (propertyValues.Count == 0)
+                    return BadRequest(new { error = "No property values found in Excel file" });
+
+                _logger.LogInformation("📊 Parsed Excel file: {FileName}, {PropertyCount} properties", 
+                    excelFile.FileName, propertyValues.Count);
+
+                return Ok(propertyValues);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid Excel file: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing Excel file: {FileName}", excelFile?.FileName);
                 return StatusCode(500, new { error = "Internal server error occurred" });
             }
         }

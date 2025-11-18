@@ -34,6 +34,13 @@ namespace CMS.WebApi.Models
         [Required]
         public bool IsActive { get; set; } = true;
         
+        public bool IsDeleted { get; set; } = false;
+        
+        public DateTime? DeletedAt { get; set; }
+        
+        [MaxLength(100)]
+        public string? DeletedBy { get; set; }
+        
         [Required]
         [MaxLength(100)]
         public string CreatedBy { get; set; } = string.Empty;  // From X-SME-UserId header

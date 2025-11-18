@@ -119,6 +119,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         c.IncludeXmlComments(xmlPath);
     }
+
 });
 
 // Configure CORS for Angular frontend

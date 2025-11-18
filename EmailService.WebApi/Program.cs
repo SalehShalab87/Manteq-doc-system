@@ -57,15 +57,11 @@ Console.WriteLine($"📧 EmailService Database: {dbDatabase}");
 
 // Add services to the container.
 
-// Add controllers with JSON enum handling - ONLY EmailService controllers
+// Add controllers - ONLY EmailService controllers
 builder.Services.AddControllers(options =>
 {
     // Apply controller filtering to hide CMS/TMS endpoints
     options.Conventions.Add(new ControllerExclusionConvention(typeof(Program).Assembly));
-})
-.AddJsonOptions(options =>
-{
-    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
 // Add custom application model provider for additional filtering
@@ -78,10 +74,36 @@ builder.Services.AddDbContext<CmsDbContext>(options =>
 // Add HttpContextAccessor for header reading
 builder.Services.AddHttpContextAccessor();
 
-// Register CMS Services (used internally by Email Service)
-builder.Services.AddScoped<IDocumentService, DocumentService>();
+// Add HttpClient for CMS API integration
+builder.Services.AddHttpClient("CmsApi", client =>
+{
+    var cmsApiUrl = Environment.GetEnvironmentVariable("CMS_BASE_URL") 
+                    ?? builder.Configuration["CmsApi:BaseUrl"] 
+                    ?? "http://localhost:5000";
+    client.BaseAddress = new Uri(cmsApiUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+    Console.WriteLine($"🔗 CMS API URL configured: {cmsApiUrl}");
+});
+
+// Add HttpClient for TMS API integration
+builder.Services.AddHttpClient("TmsApi", client =>
+{
+    var tmsApiUrl = Environment.GetEnvironmentVariable("TMS_BASE_URL") 
+                    ?? builder.Configuration["TmsApi:BaseUrl"] 
+                    ?? "http://localhost:5267";
+    client.BaseAddress = new Uri(tmsApiUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+    Console.WriteLine($"🔗 TMS API URL configured: {tmsApiUrl}");
+});
+
+// Register CMS Services (used internally by Email Service and by EmailTemplatesController)
+builder.Services.AddScoped<CMS.WebApi.Services.IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICmsTemplateService, CmsTemplateService>();
-builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<CMS.WebApi.Services.IEmailTemplateService, CMS.WebApi.Services.EmailTemplateService>();
+builder.Services.AddScoped<IEmailTemplateFileService, EmailTemplateFileService>();
+
+// Register Email Service integration layer for CMS (used by EmailSendingService)
+builder.Services.AddScoped<EmailService.WebApi.Services.IEmailTemplateService, EmailTemplateIntegrationService>();
 
 // Register TMS Services (used internally by Email Service)
 builder.Services.AddScoped<ITemplateService, TMS.WebApi.Services.TemplateService>();
@@ -110,6 +132,10 @@ builder.Services.AddSwaggerGen(c =>
             Email = "salehshalab2@gmail.com"
         }
     });
+
+    // Use fully qualified names to avoid enum conflicts between CMS and EmailService
+    c.CustomSchemaIds(type => type.FullName);
+
 
     // Include XML comments for better Swagger documentation
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";

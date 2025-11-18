@@ -21,6 +21,7 @@ namespace EmailService.WebApi.Services
         Task<EmailSendResponse> SendEmailWithTemplateAsync(SendEmailWithTemplateRequest request);
         Task<EmailSendResponse> SendEmailWithDocumentsAsync(SendEmailWithDocumentsRequest request);
         Task<EmailSendResponse> SendEmailWithTmsHtmlAndAttachmentAsync(SendEmailWithTmsHtmlAndAttachmentRequest request);
+        Task<EmailSendResponse> TestEmailTemplateAsync(TestEmailTemplateRequest request);
     }
 
     /// <summary>
@@ -33,14 +34,16 @@ namespace EmailService.WebApi.Services
         private readonly ILogger<EmailSendingService> _logger;
         private readonly ITmsIntegrationService _tmsService;
         private readonly ICmsIntegrationService _cmsService;
-        private readonly IEmailTemplateService _emailTemplateService;
+        private readonly CMS.WebApi.Services.IEmailTemplateService _emailTemplateService;
+        private readonly CMS.WebApi.Services.IEmailTemplateFileService _fileService;
 
         public EmailSendingService(
             IConfiguration configuration,
             ILogger<EmailSendingService> logger,
             ITmsIntegrationService tmsService,
             ICmsIntegrationService cmsService,
-            IEmailTemplateService emailTemplateService)
+            CMS.WebApi.Services.IEmailTemplateService emailTemplateService,
+            CMS.WebApi.Services.IEmailTemplateFileService fileService)
         {
             _emailConfig = configuration.GetSection("Email").Get<EmailConfiguration>() ?? new EmailConfiguration();
             _smtpConfig = new SmtpConfiguration
@@ -55,6 +58,7 @@ namespace EmailService.WebApi.Services
             _tmsService = tmsService;
             _cmsService = cmsService;
             _emailTemplateService = emailTemplateService;
+            _fileService = fileService;
         }
 
 
@@ -354,6 +358,203 @@ namespace EmailService.WebApi.Services
                 {
                     EmailId = emailId,
                     Message = "Failed to send email",
+                    Status = EmailStatus.Failed,
+                    SentAt = DateTime.UtcNow,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// Test email template with full support for all body types and attachments
+        /// </summary>
+        public async Task<EmailSendResponse> TestEmailTemplateAsync(TestEmailTemplateRequest request)
+        {
+            var emailId = Guid.NewGuid();
+            _logger.LogInformation("Testing email template: TemplateId={TemplateId}, EmailId={EmailId}", request.TemplateId, emailId);
+
+            try
+            {
+                // Get the email template from local database
+                var template = await _emailTemplateService.GetEmailTemplateByIdAsync(request.TemplateId);
+                if (template == null)
+                {
+                    throw new ArgumentException($"Email template not found: {request.TemplateId}");
+                }
+
+                // Create email message
+                var message = new MimeMessage();
+                
+                // Set sender
+                var fromAccount = _emailConfig.Accounts.FirstOrDefault(a => a.IsDefault) 
+                    ?? _emailConfig.Accounts.FirstOrDefault();
+                
+                if (fromAccount == null)
+                {
+                    throw new InvalidOperationException("No email account configured");
+                }
+
+                message.From.Add(new MailboxAddress(fromAccount.DisplayName, fromAccount.EmailAddress));
+
+                // Set recipients
+                foreach (var to in request.ToRecipients)
+                {
+                    message.To.Add(MailboxAddress.Parse(to));
+                }
+
+                foreach (var cc in request.CcRecipients)
+                {
+                    message.Cc.Add(MailboxAddress.Parse(cc));
+                }
+
+                foreach (var bcc in request.BccRecipients)
+                {
+                    message.Bcc.Add(MailboxAddress.Parse(bcc));
+                }
+
+                message.Subject = $"[TEST] {template.Subject}";
+
+                // Build email body and attachments based on template configuration
+                var builder = new BodyBuilder();
+
+                // Handle body based on BodySourceType
+                switch (template.BodySourceType)
+                {
+                    case CMS.WebApi.Models.EmailBodySourceType.PlainText:
+                        builder.TextBody = template.PlainTextContent;
+                        builder.HtmlBody = $"<pre>{System.Net.WebUtility.HtmlEncode(template.PlainTextContent)}</pre>";
+                        break;
+
+                    case CMS.WebApi.Models.EmailBodySourceType.TmsTemplate:
+                        if (template.TmsTemplateId == null)
+                        {
+                            throw new ArgumentException("TMS template ID is required for TmsTemplate body source");
+                        }
+
+                        if (request.TmsBodyPropertyValues == null || request.TmsBodyPropertyValues.Count == 0)
+                        {
+                            throw new ArgumentException("TmsBodyPropertyValues are required for TmsTemplate body source");
+                        }
+
+                        var bodyDoc = await _tmsService.GenerateDocumentAsync(
+                            template.TmsTemplateId.Value,
+                            request.TmsBodyPropertyValues,
+                            TmsExportFormat.EmailHtml);
+
+                        builder.HtmlBody = System.Text.Encoding.UTF8.GetString(bodyDoc.FileContent);
+                        break;
+
+                    case CMS.WebApi.Models.EmailBodySourceType.CustomTemplate:
+                        if (string.IsNullOrEmpty(template.CustomTemplateFilePath))
+                        {
+                            throw new ArgumentException("Custom template file path is required for CustomTemplate body source");
+                        }
+
+                        // Read custom template file
+                        var customHtmlBytes = await _fileService.GetCustomTemplateAsync(template.Id);
+                        builder.HtmlBody = System.Text.Encoding.UTF8.GetString(customHtmlBytes);
+                        break;
+
+                    default:
+                        throw new ArgumentException($"Unsupported body source type: {template.BodySourceType}");
+                }
+
+                // Handle attachments from template's default attachments
+                var attachments = template.Attachments ?? new List<CMS.WebApi.Models.EmailTemplateAttachmentResponse>();
+                int attachmentIndex = 0;
+
+                foreach (var attachment in attachments)
+                {
+                    try
+                    {
+                        switch (attachment.SourceType)
+                        {
+                            case CMS.WebApi.Models.AttachmentSourceType.CmsDocument:
+                                if (attachment.CmsDocumentId.HasValue)
+                                {
+                                    var doc = await _cmsService.GetDocumentAsync(attachment.CmsDocumentId.Value);
+                                    if (doc != null)
+                                    {
+                                        builder.Attachments.Add(attachment.CustomFileName ?? doc.FileName, doc.FileContent);
+                                    }
+                                }
+                                break;
+
+                            case CMS.WebApi.Models.AttachmentSourceType.TmsTemplate:
+                                if (attachment.TmsTemplateId.HasValue)
+                                {
+                                    if (request.TmsAttachmentPropertyValues == null || 
+                                        !request.TmsAttachmentPropertyValues.ContainsKey(attachmentIndex))
+                                    {
+                                        throw new ArgumentException($"TmsAttachmentPropertyValues are required for TMS attachment at index {attachmentIndex}");
+                                    }
+
+                                    var exportFormat = attachment.TmsExportFormat.HasValue 
+                                        ? (TmsExportFormat)attachment.TmsExportFormat.Value 
+                                        : TmsExportFormat.Pdf;
+                                    var tmsDoc = await _tmsService.GenerateDocumentAsync(
+                                        attachment.TmsTemplateId.Value,
+                                        request.TmsAttachmentPropertyValues[attachmentIndex],
+                                        exportFormat);
+
+                                    var extension = exportFormat switch
+                                    {
+                                        TmsExportFormat.Pdf => "pdf",
+                                        TmsExportFormat.Word => "docx",
+                                        TmsExportFormat.Html => "html",
+                                        _ => "pdf"
+                                    };
+
+                                    builder.Attachments.Add(attachment.CustomFileName ?? $"attachment{attachmentIndex}.{extension}", tmsDoc.FileContent);
+                                }
+                                break;
+
+                            case CMS.WebApi.Models.AttachmentSourceType.CustomFile:
+                                if (!string.IsNullOrEmpty(attachment.CustomFilePath))
+                                {
+                                    var (fileBytes, fileName, contentType) = await _fileService.GetCustomAttachmentAsync(template.Id, attachmentIndex);
+                                    builder.Attachments.Add(attachment.CustomFileName ?? fileName, fileBytes);
+                                }
+                                break;
+                        }
+
+                        attachmentIndex++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to attach file at index {Index}: {FileName}", attachmentIndex, attachment.CustomFileName);
+                        // Continue with other attachments
+                    }
+                }
+
+                message.Body = builder.ToMessageBody();
+
+                // Send the email
+                using (var smtp = new SmtpClient())
+                {
+                    await smtp.ConnectAsync(_smtpConfig.Host, _smtpConfig.Port, _smtpConfig.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
+                    await smtp.AuthenticateAsync(_smtpConfig.Username, _smtpConfig.Password);
+                    await smtp.SendAsync(message);
+                    await smtp.DisconnectAsync(true);
+                }
+
+                _logger.LogInformation("Test email sent successfully: {EmailId}", emailId);
+
+                return new EmailSendResponse
+                {
+                    EmailId = emailId,
+                    Message = "Test email sent successfully",
+                    Status = EmailStatus.Sent,
+                    SentAt = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send test email: TemplateId={TemplateId}, EmailId={EmailId}", request.TemplateId, emailId);
+                return new EmailSendResponse
+                {
+                    EmailId = emailId,
+                    Message = "Failed to send test email",
                     Status = EmailStatus.Failed,
                     SentAt = DateTime.UtcNow,
                     ErrorMessage = ex.Message

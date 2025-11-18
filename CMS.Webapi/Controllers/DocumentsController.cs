@@ -206,7 +206,37 @@ namespace CMS.WebApi.Controllers
         }
 
         /// <summary>
-        /// Get all document types with counts
+        /// Soft delete a document (move to trash)
+        /// </summary>
+        /// <param name="id">Document ID</param>
+        /// <returns>Success message</returns>
+        [HttpDelete("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteDocument(Guid id)
+        {
+            try
+            {
+                var document = await _context.Documents.FindAsync(id);
+                if (document == null) return NotFound(new { error = "Document not found" });
+                
+                document.IsDeleted = true;
+                document.DeletedAt = DateTime.UtcNow;
+                document.DeletedBy = Request.Headers["X-User-Id"].FirstOrDefault() ?? "system";
+                
+                await _context.SaveChangesAsync();
+                
+                return Ok(new { message = "Document moved to trash successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting document {DocumentId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Get all document types with counts (excluding deleted)
         /// </summary>
         /// <returns>List of document types and their counts</returns>
         [HttpGet("types")]
@@ -216,7 +246,7 @@ namespace CMS.WebApi.Controllers
             try
             {
                 var types = await _context.Documents
-                    .Where(d => d.Type != null)
+                    .Where(d => d.Type != null && !d.IsDeleted)
                     .GroupBy(d => d.Type)
                     .Select(g => new { Type = g.Key, Count = g.Count() })
                     .ToListAsync();

@@ -11,7 +11,11 @@ RUN apt-get update && \
     fonts-liberation \
     fonts-dejavu \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "LibreOffice installed at:" \
+    && which libreoffice \
+    && which soffice \
+    && ls -la /usr/bin/libreoffice* /usr/bin/soffice* || true
 
 WORKDIR /app
 EXPOSE 5267

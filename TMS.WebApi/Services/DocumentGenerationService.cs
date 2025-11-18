@@ -7,12 +7,14 @@ using DocumentFormat.OpenXml;
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
+using System.Runtime.InteropServices;
 
 namespace TMS.WebApi.Services
 {
     public interface IDocumentGenerationService
     {
         Task<DocumentGenerationResponse> GenerateDocumentAsync(DocumentGenerationRequest request);
+        Task<DocumentGenerationResponse> GenerateDocumentFromFileAsync(IFormFile templateFile, Dictionary<string, string> propertyValues, ExportFormat exportFormat);
         Task<byte[]> DownloadGeneratedDocumentAsync(Guid generationId);
         Task<string> GetGeneratedDocumentPathAsync(Guid generationId);
         Task<bool> CleanupExpiredDocumentsAsync();
@@ -192,6 +194,112 @@ namespace TMS.WebApi.Services
                 });
                 
                 throw;
+            }
+        }
+
+        public async Task<DocumentGenerationResponse> GenerateDocumentFromFileAsync(
+            IFormFile templateFile, 
+            Dictionary<string, string> propertyValues, 
+            ExportFormat exportFormat)
+        {
+            string tempTemplatePath = string.Empty;
+            string workingFilePath = string.Empty;
+            
+            try
+            {
+                _logger.LogInformation("Starting document generation from file: {FileName}", templateFile.FileName);
+
+                // Save uploaded template to temp location
+                var generationId = Guid.NewGuid();
+                var tempFileName = $"test_template_{generationId}_{templateFile.FileName}";
+                tempTemplatePath = Path.Combine(Path.GetTempPath(), tempFileName);
+                
+                using (var stream = new FileStream(tempTemplatePath, FileMode.Create))
+                {
+                    await templateFile.CopyToAsync(stream);
+                }
+
+                _logger.LogInformation("Processing test template with {PropertyCount} properties", propertyValues.Count);
+
+                // Create unique identifiers for this generation
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var sanitizedFileName = SanitizeFileName(Path.GetFileNameWithoutExtension(templateFile.FileName));
+                
+                // Determine output file extension based on export format
+                var outputExtension = GetOutputExtension(exportFormat, tempTemplatePath);
+                var outputFileName = $"{sanitizedFileName}_test_{timestamp}_{generationId:N}[0..8]{outputExtension}";
+                var outputPath = Path.Combine(_outputDirectory, outputFileName);
+
+                // Create working copy of the template
+                workingFilePath = await CreateWorkingCopyAsync(tempTemplatePath, generationId);
+                
+                // Replace placeholders in the working copy
+                var processedCount = await ReplacePlaceholdersAsync(workingFilePath, propertyValues);
+                _logger.LogInformation("Replaced {ProcessedCount} placeholders in test template", processedCount);
+
+                // Convert to requested format
+                var finalPath = await ConvertToRequestedFormatAsync(workingFilePath, outputPath, exportFormat);
+                
+                // Get file information
+                var fileInfo = new FileInfo(finalPath);
+                
+                // Create generated document record
+                var generatedDoc = new GeneratedDocument
+                {
+                    Id = generationId,
+                    FileName = Path.GetFileName(finalPath),
+                    FilePath = finalPath,
+                    FileSizeBytes = fileInfo.Length,
+                    ExpiresAt = DateTime.UtcNow.AddHours(1), // Test documents expire in 1 hour
+                    ExportFormat = exportFormat,
+                    SourceTemplateId = Guid.Empty, // No template ID for test documents
+                    GeneratedBy = "TestTemplate"
+                };
+
+                // Track the generated document
+                _generatedDocuments[generationId] = generatedDoc;
+
+                _logger.LogInformation("Test document generation completed successfully. File: {FileName}, Size: {FileSize} bytes", 
+                    generatedDoc.FileName, generatedDoc.FileSizeBytes);
+
+                return new DocumentGenerationResponse
+                {
+                    GenerationId = generationId,
+                    Message = "Test document generated successfully",
+                    FileName = generatedDoc.FileName,
+                    FileSizeBytes = generatedDoc.FileSizeBytes,
+                    DownloadUrl = $"/api/templates/download/{generationId}",
+                    ExpiresAt = generatedDoc.ExpiresAt,
+                    ExportFormat = exportFormat,
+                    ProcessedPlaceholders = processedCount
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating test document from file: {FileName}", templateFile.FileName);
+                throw;
+            }
+            finally
+            {
+                // Clean up temp files
+                try
+                {
+                    if (!string.IsNullOrEmpty(tempTemplatePath) && File.Exists(tempTemplatePath))
+                    {
+                        File.Delete(tempTemplatePath);
+                        _logger.LogDebug("Cleaned up temp template file: {TempPath}", tempTemplatePath);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(workingFilePath) && File.Exists(workingFilePath))
+                    {
+                        File.Delete(workingFilePath);
+                        _logger.LogDebug("Cleaned up working file: {WorkingPath}", workingFilePath);
+                    }
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogWarning(cleanupEx, "Error cleaning up temp files");
+                }
             }
         }
 
@@ -512,12 +620,19 @@ namespace TMS.WebApi.Services
                 string propertyName = match.Groups[1].Value.Trim();
                 if (propertyValues.TryGetValue(propertyName, out var newValue))
                 {
-                    var textElements = field.Elements<DocumentFormat.OpenXml.Wordprocessing.Text>().ToList();
-                    foreach (var textElement in textElements)
-                    {
-                        textElement.Text = newValue;
-                    }
+                    // Remove all existing content
+                    field.RemoveAllChildren<DocumentFormat.OpenXml.Wordprocessing.Run>();
+                    field.RemoveAllChildren<DocumentFormat.OpenXml.Wordprocessing.Text>();
+                    
+                    // Add new run with text
+                    var run = new DocumentFormat.OpenXml.Wordprocessing.Run();
+                    var text = new DocumentFormat.OpenXml.Wordprocessing.Text(newValue);
+                    text.Space = SpaceProcessingModeValues.Preserve;
+                    run.Append(text);
+                    field.Append(run);
+                    
                     updatedCount++;
+                    _logger.LogDebug("Updated SimpleField for property: {PropertyName} with value: {Value}", propertyName, newValue);
                 }
             }
             return updatedCount;
@@ -589,24 +704,29 @@ namespace TMS.WebApi.Services
                 {
                     // Update the result text (between separate and end, or between last instruction and end)
                     int resultStartIndex = separateIndex != -1 ? separateIndex + 1 : instrStartIndex;
-                    bool isFirst = true;
+                    
+                    // Remove all existing result runs
+                    var runsToRemove = new List<DocumentFormat.OpenXml.Wordprocessing.Run>();
                     for (int k = resultStartIndex; k < endIndex; k++)
                     {
-                        var textElements = runs[k].Elements<DocumentFormat.OpenXml.Wordprocessing.Text>().ToList();
-                        foreach (var textElement in textElements)
-                        {
-                            if (isFirst)
-                            {
-                                textElement.Text = newValue;
-                                isFirst = false;
-                            }
-                            else
-                            {
-                                textElement.Text = "";
-                            }
-                        }
+                        runsToRemove.Add(runs[k]);
                     }
+                    foreach (var runToRemove in runsToRemove)
+                    {
+                        runToRemove.Remove();
+                    }
+                    
+                    // Insert new run with the updated value right after the separate or instruction
+                    var newRun = new DocumentFormat.OpenXml.Wordprocessing.Run();
+                    var newText = new DocumentFormat.OpenXml.Wordprocessing.Text(newValue);
+                    newText.Space = SpaceProcessingModeValues.Preserve;
+                    newRun.Append(newText);
+                    
+                    // Insert the new run before the field end
+                    runs[endIndex].InsertBeforeSelf(newRun);
+                    
                     updatedCount++;
+                    _logger.LogDebug("Updated ComplexField for property: {PropertyName} with value: {Value}", propertyName, newValue);
                 }
                 // Move index to after the field end
                 i = endIndex;
@@ -637,7 +757,9 @@ namespace TMS.WebApi.Services
                     element.Remove();
                 }
 
-                settings.Append(new UpdateFieldsOnOpen() { Val = true });
+                // Set to FALSE - we've already updated the fields manually
+                // Setting to true would cause LibreOffice/Word to recalculate from custom properties
+                settings.Append(new UpdateFieldsOnOpen() { Val = false });
             }
             catch (Exception ex)
             {
@@ -1358,22 +1480,33 @@ namespace TMS.WebApi.Services
 
         private string FindLibreOfficePath()
         {
-            string[] possiblePaths = {
-                @"C:\Program Files\LibreOffice\program\soffice.exe",
-                @"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\LibreOffice\program\soffice.exe")
-            };
+            // Check if running on Linux (Docker container) or Windows
+            var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+            
+            string[] possiblePaths = isLinux 
+                ? new[] {
+                    "/usr/bin/libreoffice",
+                    "/usr/bin/soffice",
+                    "/usr/local/bin/libreoffice",
+                    "/usr/local/bin/soffice"
+                }
+                : new[] {
+                    @"C:\Program Files\LibreOffice\program\soffice.exe",
+                    @"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\LibreOffice\program\soffice.exe")
+                };
 
             foreach (string path in possiblePaths)
             {
                 if (File.Exists(path))
                 {
-                    _logger.LogInformation("Found LibreOffice at: {Path}", path);
+                    _logger.LogInformation("✅ Found LibreOffice at: {Path}", path);
                     return path;
                 }
             }
 
-            _logger.LogWarning("LibreOffice not found. Some export formats will not be available.");
+            _logger.LogWarning("⚠️ LibreOffice not found. PDF and some export formats will not be available. Searched paths: {Paths}", 
+                string.Join(", ", possiblePaths));
             return string.Empty;
         }
 
