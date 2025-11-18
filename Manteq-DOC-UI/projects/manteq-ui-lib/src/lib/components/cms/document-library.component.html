@@ -19,8 +19,8 @@
                 class="form-select" 
                 [(ngModel)]="uploadForm.type">
                 <option value="">Select type...</option>
-                <option value="QuotationReport">Quotation Report</option>
-                <option value="TOB">TOB</option>
+                <option value="CensusList">Census List</option>
+                <option value="FullList">Full List </option>
                 
               </select>
             </div>
@@ -59,8 +59,8 @@
                     <input 
                       type="text" 
                       class="form-control form-control-sm" 
-                      [(ngModel)]="searchTerm"
-                      (keyup.enter)="searchDocuments()"
+                      [value]="searchTerm()"
+                      (input)="updateSearchTerm($event)"
                       placeholder="Search documents...">
                     <button class="btn btn-outline-secondary btn-sm" type="button" (click)="searchDocuments()">
                       <i class="bi bi-search"></i>
@@ -153,6 +153,12 @@
                             } @else {
                               <i class="bi bi-toggle-off"></i>
                             }
+                          </button>
+                          <button
+                            class="action-btn action-btn-danger"
+                            (click)="deleteDocument(doc)"
+                            title="Delete Document">
+                            <i class="bi bi-trash3"></i>
                           </button>
                         </div>
                       </td>

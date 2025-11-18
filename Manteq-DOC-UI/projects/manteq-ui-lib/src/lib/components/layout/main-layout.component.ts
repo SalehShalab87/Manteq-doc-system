@@ -1,9 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, Input, OnChanges, SimpleChanges, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './header.component';
 import { SidebarComponent, NavItem } from './sidebar.component';
 import { ThemeService } from '../../services/theme.service';
+import { ManteqLibConfig, UserContext } from '../../models/config.model';
 
 @Component({
   selector: 'manteq-main-layout',
@@ -167,8 +168,12 @@ import { ThemeService } from '../../services/theme.service';
     }
   `]
 })
-export class MainLayoutComponent {
+export class MainLayoutComponent implements OnChanges {
   sidebarOpen = signal(false);
+  
+  // Inputs for dynamic configuration
+  @Input() config!: ManteqLibConfig;
+  @Input() userContext!: UserContext;
   
   navItems = signal<NavItem[]>([
     { label: 'Document Library', icon: 'bi-folder-fill', route: 'documents' },
@@ -177,8 +182,22 @@ export class MainLayoutComponent {
     { label: 'Trash', icon: 'bi-trash', route: 'trash' }
   ]);
   
-  constructor(private router: Router, private themeService: ThemeService) {
-    // ThemeService is injected to ensure it initializes and applies theme
+  private themeService = inject(ThemeService);
+  
+  constructor(private router: Router) {
+    // Watch for config changes and apply theme
+    effect(() => {
+      if (this.config) {
+        this.themeService.setConfig(this.config);
+      }
+    });
+  }
+  
+  ngOnChanges(changes: SimpleChanges): void {
+    // Handle initial load and subsequent changes
+    if (changes['config'] && this.config) {
+      this.themeService.setConfig(this.config);
+    }
   }
   
   toggleSidebar(): void {

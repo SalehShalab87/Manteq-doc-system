@@ -42,8 +42,8 @@ export class DocumentLibraryComponent implements OnInit {
     }
 
     // Filter by search term
-    if (filter.searchTerm) {
-      const term = filter.searchTerm.toLowerCase();
+    if (this.searchTerm()) {
+      const term = this.searchTerm().toLowerCase();
       filtered = filtered.filter(d => 
         d.name.toLowerCase().includes(term) ||
         d.type?.toLowerCase().includes(term)
@@ -60,7 +60,7 @@ export class DocumentLibraryComponent implements OnInit {
     name: '',
     type: ''
   };
-  searchTerm = '';
+  searchTerm = signal('');
   
   // Pagination
   currentPage = signal(1);
@@ -186,6 +186,35 @@ export class DocumentLibraryComponent implements OnInit {
   }
 
   /**
+   * Delete document (soft delete)
+   */
+  async deleteDocument(doc: Document): Promise<void> {
+    const confirmed = await this.notificationService.confirm(
+      'Delete Document',
+      `Are you sure you want to delete "${doc.name}"? This will move it to trash.`,
+      'Delete',
+      'Cancel'
+    );
+
+    if (!confirmed) return;
+
+    this.notificationService.showLoading('Deleting document...');
+
+    this.cmsApi.deleteDocument(doc.id).subscribe({
+      next: () => {
+        this.notificationService.hideLoading();
+        this.notificationService.success('Document moved to trash');
+        this.loadDocuments();
+      },
+      error: (error) => {
+        console.error('Error deleting document:', error);
+        this.notificationService.hideLoading();
+        this.notificationService.error('Failed to delete document');
+      }
+    });
+  }
+
+  /**
    * Toggle document status
    */
   async toggleDocumentStatus(doc: Document): Promise<void> {
@@ -231,8 +260,13 @@ export class DocumentLibraryComponent implements OnInit {
    * Search documents
    */
   searchDocuments(): void {
-    this.currentFilter.update(f => ({ ...f, searchTerm: this.searchTerm }));
+    this.currentFilter.update(f => ({ ...f, searchTerm: this.searchTerm() }));
     this.currentPage.set(1); // Reset to first page on search
+  }
+
+  updateSearchTerm(event: Event): void {
+    this.searchTerm.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(1);
   }
   
   goToPage(page: number): void {

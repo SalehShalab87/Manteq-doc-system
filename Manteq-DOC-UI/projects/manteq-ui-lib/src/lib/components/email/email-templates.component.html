@@ -23,8 +23,8 @@
           <input
             type="text"
             class="form-control border-start-0"
-            [(ngModel)]="searchTerm"
-            (keyup.enter)="searchTemplates()"
+            [value]="searchTerm()"
+            (input)="updateSearchTerm($event)"
             placeholder="Search templates...">
         </div>
       </div>

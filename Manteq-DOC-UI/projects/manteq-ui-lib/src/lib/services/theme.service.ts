@@ -66,4 +66,19 @@ export class ThemeService {
     this.configSignal.update(current => ({ ...current, ...config }));
     this.applyTheme();
   }
+
+  /**
+   * Set entire theme configuration (for parent app runtime updates)
+   */
+  setConfig(config: ManteqLibConfig): void {
+    this.configSignal.set(config);
+    this.applyTheme();
+  }
+
+  /**
+   * Get current configuration (for debugging or parent app access)
+   */
+  getCurrentConfig(): ManteqLibConfig {
+    return this.configSignal();
+  }
 }

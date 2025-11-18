@@ -9,9 +9,18 @@ import { ThemeService } from '../../services/theme.service';
   template: `
     <div class="library-header">
       <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h1 class="page-title mb-1">{{ themeService.companyName() }}</h1>
-          <p class="text-muted mb-0">Manage and organize your documents efficiently</p>
+        <div class="d-flex align-items-center">
+          @if (themeService.companyLogo()) {
+            <img 
+              [src]="themeService.companyLogo()" 
+              alt="Company Logo" 
+              class="company-logo me-3"
+            >
+          }
+          <div>
+            <h1 class="page-title mb-1">{{ themeService.companyName() }}</h1>
+            <p class="text-muted mb-0">Manage and organize your documents efficiently</p>
+          </div>
         </div>
         <div class="text-end">
           <small class="text-muted">{{ themeService.disclaimer() }}</small>
@@ -29,9 +38,22 @@ import { ThemeService } from '../../services/theme.service';
       position: relative;
     }
 
+    .company-logo {
+      height: 50px;
+      width: auto;
+      max-width: 150px;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
     @media (max-width: 991.98px) {
       .library-header {
         padding: 1rem 1.5rem 1rem 4.5rem;
+      }
+      
+      .company-logo {
+        height: 40px;
+        max-width: 120px;
       }
     }
 
@@ -42,6 +64,11 @@ import { ThemeService } from '../../services/theme.service';
 
       .library-header p {
         font-size: 0.875rem;
+      }
+      
+      .company-logo {
+        height: 35px;
+        max-width: 100px;
       }
     }
 

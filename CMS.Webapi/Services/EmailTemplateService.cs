@@ -8,11 +8,13 @@ namespace CMS.WebApi.Services
     {
         private readonly CmsDbContext _context;
         private readonly ILogger<EmailTemplateService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public EmailTemplateService(CmsDbContext context, ILogger<EmailTemplateService> logger)
+        public EmailTemplateService(CmsDbContext context, ILogger<EmailTemplateService> logger , IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<EmailTemplateResponse> CreateEmailTemplateAsync(CreateEmailTemplateRequest request, string createdBy)
@@ -161,7 +163,7 @@ namespace CMS.WebApi.Services
                         CustomFileName = attachmentRequest.CustomFileName,
                         DisplayOrder = attachmentRequest.DisplayOrder,
                         CreatedDate = DateTime.UtcNow,
-                        CreatedBy = "SYSTEM" // TODO: Get from context
+                        CreatedBy = GetCurrentUserId(), // TODO: Get from context
                     };
                     _context.EmailTemplateAttachments.Add(attachment);
                 }
@@ -184,7 +186,7 @@ namespace CMS.WebApi.Services
             // Soft delete
             emailTemplate.IsDeleted = true;
             emailTemplate.DeletedAt = DateTime.UtcNow;
-            emailTemplate.DeletedBy = "SYSTEM"; // TODO: Get from HttpContext
+            emailTemplate.DeletedBy = GetCurrentUserId(); // TODO: Get from HttpContext
             
             await _context.SaveChangesAsync();
 
@@ -216,7 +218,7 @@ namespace CMS.WebApi.Services
             emailTemplate.IsActive = false;
             emailTemplate.IsDeleted = true;
             emailTemplate.DeletedAt = DateTime.UtcNow;
-            emailTemplate.DeletedBy = "SYSTEM"; // TODO: Get from HttpContext
+            emailTemplate.DeletedBy = GetCurrentUserId(); // TODO: Get from HttpContext
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Email template moved to trash: {TemplateId}", id);
@@ -308,7 +310,7 @@ namespace CMS.WebApi.Services
                 TmsTemplateId = request.TmsTemplateId,
                 CustomTemplateFilePath = request.CustomTemplateFilePath,
                 IsActive = true,
-                CreatedBy = "system",
+                CreatedBy = GetCurrentUserId(),
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -411,6 +413,12 @@ namespace CMS.WebApi.Services
                 .Where(a => a.EmailTemplateId == templateId)
                 .OrderBy(a => a.DisplayOrder)
                 .ToListAsync();
+        }
+
+        private string GetCurrentUserId()
+        {
+            return _httpContextAccessor.HttpContext?.Request.Headers["X-SME-UserId"].FirstOrDefault()
+                   ?? "SYSTEM";
         }
 
         private static EmailTemplateResponse MapToResponse(EmailTemplate emailTemplate)
