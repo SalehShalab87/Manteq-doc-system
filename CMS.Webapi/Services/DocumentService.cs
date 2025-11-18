@@ -52,6 +52,11 @@ namespace CMS.WebApi.Services
                 "ppt" => "application/vnd.ms-powerpoint",
                 "txt" => "text/plain",
                 "csv" => "text/csv",
+                "png" => "image/png",
+                "jpg" or "jpeg" => "image/jpeg",
+                "gif" => "image/gif",
+                "zip" => "application/zip",
+                "rar" => "application/x-rar-compressed",
                 _ => "application/octet-stream"
             };
         }

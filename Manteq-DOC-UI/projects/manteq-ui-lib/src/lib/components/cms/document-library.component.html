@@ -19,12 +19,9 @@
                 class="form-select" 
                 [(ngModel)]="uploadForm.type">
                 <option value="">Select type...</option>
-                <option value="Invoice">Invoice</option>
-                <option value="Report">Report</option>
-                <option value="Contract">Contract</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Memo">Memo</option>
-                <option value="Other">Other</option>
+                <option value="QuotationReport">Quotation Report</option>
+                <option value="TOB">TOB</option>
+                
               </select>
             </div>
             <div class="col-md-3">
@@ -33,7 +30,7 @@
                 type="file" 
                 class="form-control" 
                 (change)="onFileSelected($event)"
-                accept=".pdf,.doc,.docx,.xls,.xlsx">
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif,zip,.rar">
             </div>
             <div class="col-md-2">
               <label class="form-label">&nbsp;</label>

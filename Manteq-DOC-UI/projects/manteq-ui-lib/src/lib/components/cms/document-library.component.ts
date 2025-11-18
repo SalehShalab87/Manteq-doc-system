@@ -171,7 +171,7 @@ export class DocumentLibraryComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = doc.name + doc.extension;
+        a.download = doc.name;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
