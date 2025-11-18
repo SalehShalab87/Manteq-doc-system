@@ -1,0 +1,973 @@
+<!-- Header Section -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-1">
+      <i class="bi bi-envelope me-2"></i>Email Templates
+    </h4>
+    <p class="text-muted mb-0">Manage email templates with CMS/TMS attachments support</p>
+  </div>
+  <button class="btn btn-primary" (click)="openCreateModal()">
+    <i class="bi bi-plus-circle me-1"></i> Create Template
+  </button>
+</div>
+
+<!-- Search and Filters -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-5">
+        <div class="input-group">
+          <span class="input-group-text bg-white">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            type="text"
+            class="form-control border-start-0"
+            [(ngModel)]="searchTerm"
+            (keyup.enter)="searchTemplates()"
+            placeholder="Search templates...">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" [value]="selectedCategory()" (change)="filterByCategory($any($event.target).value)">
+          <option value="all">All Categories</option>
+          @for (category of categories(); track category) {
+            <option [value]="category">{{ category }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select class="form-select" [value]="selectedStatus()" (change)="filterByStatus($any($event.target).value)">
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100" (click)="loadEmailTemplates()">
+          <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Templates Table -->
+<div class="card">
+  <div class="card-body p-0">
+    @if (loading()) {
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    } @else if (filteredTemplates().length === 0) {
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-envelope display-1"></i>
+        <p class="mt-3 fs-5">No email templates found</p>
+        <p class="small">Create your first email template to get started</p>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>NAME</th>
+              <th>SUBJECT</th>
+              <th>BODY SOURCE</th>
+              <th>CATEGORY</th>
+              <th>STATS</th>
+              <th>STATUS</th>
+              <th class="text-end">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (template of paginatedTemplates(); track template.id) {
+              <tr>
+                <td>
+                  <div class="fw-medium">{{ template.name }}</div>
+                  <small class="text-muted">
+                    <i class="bi bi-person"></i> {{ template.createdBy }}
+                  </small>
+                </td>
+                <td>
+                  <div class="text-truncate" style="max-width: 250px;" [title]="template.subject">
+                    {{ template.subject }}
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" 
+                        [class.bg-info]="template.bodySourceType === EmailBodySourceType.PlainText"
+                        [class.bg-primary]="template.bodySourceType === EmailBodySourceType.TmsTemplate"
+                        [class.bg-success]="template.bodySourceType === EmailBodySourceType.CustomTemplate">
+                    {{ getBodySourceLabel(template.bodySourceType) }}
+                  </span>
+                </td>
+                <td>
+                  @if (template.category) {
+                    <span class="badge bg-secondary">{{ template.category }}</span>
+                  } @else {
+                    <span class="text-muted">-</span>
+                  }
+                </td>
+                <td>
+                  <div class="small">
+                    <i class="bi bi-check-circle text-success"></i> {{ template.sentCount }} sent
+                    @if (template.failureCount > 0) {
+                      <br><i class="bi bi-x-circle text-danger"></i> {{ template.failureCount }} failed
+                    }
+                    @if (template.totalAttempts > 0) {
+                      <br><span [class]="getSuccessRateClass(template.successRate)">
+                        {{ template.successRate.toFixed(1) }}% success
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <span [class]="getStatusBadgeClass(template.isActive)">
+                    {{ template.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <div class="action-buttons">
+                    <button
+                      class="action-btn action-btn-info"
+                      (click)="openTestModal(template)"
+                      title="Test Template">
+                      <i class="bi bi-envelope-check"></i>
+                    </button>
+                    <button
+                      class="action-btn action-btn-primary"
+                      (click)="openEditModal(template)"
+                      title="Edit Template">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button
+                      class="action-btn"
+                      [class.action-btn-success]="!template.isActive"
+                      [class.action-btn-warning]="template.isActive"
+                      (click)="toggleActive(template)"
+                      [title]="template.isActive ? 'Deactivate' : 'Activate'">
+                      <i class="bi" [class.bi-toggle-on]="template.isActive" [class.bi-toggle-off]="!template.isActive"></i>
+                    </button>
+                    <button
+                      class="action-btn action-btn-danger"
+                      (click)="deleteTemplate(template)"
+                      title="Delete Template">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- Pagination Footer -->
+  @if (!loading() && filteredTemplates().length > 0) {
+    <div class="card-footer bg-white">
+      <div class="d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+          Showing {{ (currentPage() - 1) * itemsPerPage() + 1 }} to {{ Math.min(currentPage() * itemsPerPage(), filteredTemplates().length) }} of {{ filteredTemplates().length }} templates
+        </small>
+        @if (totalPages() > 1) {
+          <nav>
+            <ul class="pagination pagination-sm mb-0">
+              <li [class.disabled]="currentPage() === 1" class="page-item">
+                <button class="page-link" (click)="previousPage()" [disabled]="currentPage() === 1">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+              </li>
+              @for (page of pages(); track page) {
+                <li [class.active]="currentPage() === page" class="page-item">
+                  <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+                </li>
+              }
+              <li [class.disabled]="currentPage() === totalPages()" class="page-item">
+                <button class="page-link" (click)="nextPage()" [disabled]="currentPage() === totalPages()">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<!-- Create/Edit Modal -->
+@if (showModal()) {
+  <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6);">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content shadow-lg border-0">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold">
+            <i class="bi" [class.bi-plus-circle-fill]="modalMode() === 'create'" [class.bi-pencil-square]="modalMode() === 'edit'" class="me-2"></i>
+            {{ modalMode() === 'create' ? 'Create Email Template' : 'Edit Email Template' }}
+          </h5>
+          <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
+        </div>
+        <div class="modal-body" style="background-color: #f8f9fa;">
+          <form>
+            <!-- Basic Information Section -->
+            <div class="card border-0 shadow-sm mb-4">
+              <div class="card-header border-0" style="background: linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%);">  
+                <h6 class="mb-0 fw-semibold" style="color: #1976d2;">
+                  <i class="bi bi-info-circle-fill me-2"></i>
+                  Basic Information
+                </h6>
+              </div>
+              <div class="card-body bg-white">
+                <!-- Template Name -->
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">
+                    Template Name <span class="text-danger">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control shadow-sm"
+                    [value]="formData().name"
+                    (input)="updateFormField('name', $any($event.target).value)"
+                    placeholder="e.g., Welcome Email, Invoice Notification">
+                </div>
+
+                <!-- Subject -->
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">
+                    Email Subject <span class="text-danger">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control shadow-sm"
+                    [value]="formData().subject"
+                    (input)="updateFormField('subject', $any($event.target).value)"
+                    placeholder="e.g., Welcome to {{'CompanyName'}}!">
+                  <small class="text-muted">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    You can use placeholders like {{"PropertyName"}}
+                  </small>
+                </div>
+
+                <!-- Category -->
+                <div class="mb-0">
+                  <label class="form-label fw-semibold">Category</label>
+                  <input
+                    type="text"
+                    class="form-control shadow-sm"
+                    [value]="formData().category"
+                    (input)="updateFormField('category', $any($event.target).value)"
+                    placeholder="e.g., Transactional, Marketing, Notification"
+                    list="categoryList">
+                  <datalist id="categoryList">
+                    @for (category of categories(); track category) {
+                      <option [value]="category"></option>
+                    }
+                  </datalist>
+                  <small class="text-muted">
+                    <i class="bi bi-tag me-1"></i>
+                    Organize templates by category for easier management
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Body Source Type -->
+            <div class="card border-0 shadow-sm mb-4">
+              <div class="card-header border-0" style="background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 100%);">
+                <h6 class="mb-0 fw-semibold" style="color: #856404;">
+                  <i class="bi bi-file-text-fill me-2"></i>
+                  Email Body Configuration
+                </h6>
+              </div>
+              <div class="card-body bg-white">
+                <label class="form-label fw-semibold mb-3">
+                  Body Source Type <span class="text-danger">*</span>
+                </label>
+                <div class="btn-group w-100 shadow-sm" role="group">
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="bodySourceType"
+                    id="sourcePlainText"
+                    [checked]="formData().bodySourceType === EmailBodySourceType.PlainText"
+                    (change)="onBodySourceTypeChange(EmailBodySourceType.PlainText)">
+                  <label class="btn btn-outline-primary" for="sourcePlainText">
+                    <i class="bi bi-text-left me-1"></i> Plain Text
+                  </label>
+
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="bodySourceType"
+                    id="sourceTms"
+                    [checked]="formData().bodySourceType === EmailBodySourceType.TmsTemplate"
+                    (change)="onBodySourceTypeChange(EmailBodySourceType.TmsTemplate)">
+                  <label class="btn btn-outline-primary" for="sourceTms">
+                    <i class="bi bi-file-earmark-text me-1"></i> TMS Template
+                  </label>
+
+                  <input
+                    type="radio"
+                    class="btn-check"
+                    name="bodySourceType"
+                    id="sourceCustom"
+                    [checked]="formData().bodySourceType === EmailBodySourceType.CustomTemplate"
+                    (change)="onBodySourceTypeChange(EmailBodySourceType.CustomTemplate)">
+                  <label class="btn btn-outline-primary" for="sourceCustom">
+                    <i class="bi bi-file-earmark-code me-1"></i> Custom Template
+                  </label>
+                </div>
+
+                <!-- Plain Text Content -->
+                @if (formData().bodySourceType === EmailBodySourceType.PlainText) {
+                  <div class="mt-3">
+                    <label class="form-label fw-semibold">
+                      Plain Text Content <span class="text-danger">*</span>
+                    </label>
+                    <textarea
+                      class="form-control shadow-sm"
+                      rows="8"
+                      style="font-family: 'Courier New', monospace;"
+                      [value]="formData().plainTextContent"
+                      (input)="updateFormField('plainTextContent', $any($event.target).value)"
+                      placeholder="Enter plain text email content...&#10;&#10;You can use placeholders like {CustomerName}"></textarea>
+                    <small class="text-muted">
+                      <i class="bi bi-info-circle me-1"></i>
+                      Use simple text without HTML tags. Placeholders will be replaced at runtime.
+                    </small>
+                  </div>
+                }
+
+                <!-- TMS Template Selection -->
+                @if (formData().bodySourceType === EmailBodySourceType.TmsTemplate) {
+                  <div class="mt-3">
+                    <label class="form-label fw-semibold">
+                      Select TMS Template <span class="text-danger">*</span>
+                    </label>
+                    <select
+                      class="form-select shadow-sm"
+                      [value]="formData().tmsTemplateId || ''"
+                      (change)="updateFormField('tmsTemplateId', $any($event.target).value || undefined)">
+                      <option value="">Choose a TMS template...</option>
+                      @for (tmsTemplate of tmsTemplates(); track tmsTemplate.id) {
+                        <option [value]="tmsTemplate.id">
+                          {{ tmsTemplate.name }} - {{ tmsTemplate.category || 'Uncategorized' }}
+                        </option>
+                      }
+                    </select>
+                    <small class="text-muted">
+                      <i class="bi bi-magic me-1"></i>
+                      The TMS template will be generated as EmailHtml format for the email body
+                    </small>
+                  </div>
+                }
+
+                <!-- Custom Template File Upload -->
+                @if (formData().bodySourceType === EmailBodySourceType.CustomTemplate) {
+                  <div class="mt-3">
+                    <label class="form-label fw-semibold">
+                      Custom Template File <span class="text-danger">*</span>
+                      <i class="bi bi-info-circle text-muted ms-1" title="mht or mHTML files only, max 5MB"></i>
+                    </label>
+                    
+                    @if (formData().customTemplateFilePath && !selectedFile()) {
+                      <div class="alert alert-success border-0 shadow-sm mb-3">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        Custom template file already uploaded
+                        <button type="button" class="btn btn-sm btn-outline-success ms-2">
+                          <i class="bi bi-arrow-repeat"></i> Replace
+                        </button>
+                      </div>
+                    }
+
+                    <div class="upload-area border-2 rounded shadow-sm p-4 text-center position-relative" 
+                         style="border-style: dashed !important; border-color: #28a745 !important; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); transition: all 0.3s ease;"
+                         onmouseover="this.style.borderColor='#1e7e34'; this.style.background='linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)'"
+                         onmouseout="this.style.borderColor='#28a745'; this.style.background='linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'">
+                      @if (!selectedFile() && !formData().customTemplateFilePath) {
+                        <div class="upload-placeholder">
+                          <i class="bi bi-cloud-arrow-up display-1 text-success mb-3"></i>
+                          <h6 class="text-dark mb-2 fw-bold">Drag and drop your file here</h6>
+                          <p class="text-muted small mb-3">or click to browse</p>
+                          <span class="badge bg-success bg-opacity-75 shadow-sm px-3 py-2">
+                            <i class="bi bi-file-code me-1"></i>
+                            Supports .mht and .mhtml files (max 5MB)
+                          </span>
+                        </div>
+                      } @else if (selectedFile()) {
+                        <div class="file-selected">
+                          <i class="bi bi-file-earmark-code display-1 text-success mb-3"></i>
+                          <h6 class="text-success mb-1 fw-bold">{{ selectedFile()!.name }}</h6>
+                          <p class="text-muted small mb-2">{{ (selectedFile()!.size / 1024).toFixed(2) }} KB</p>
+                          <button type="button" class="btn btn-sm btn-danger shadow-sm" (click)="clearSelectedFile()">
+                            <i class="bi bi-x-circle me-1"></i> Remove File
+                          </button>
+                        </div>
+                      }
+                      <input
+                        type="file"
+                        class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                        style="cursor: pointer;"
+                        accept=".mhtml,.mht"
+                        (change)="onFileSelected($event)">
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Attachments Section Toggle -->
+            <div class="card border-0 shadow-sm mb-3">
+              <button 
+                type="button" 
+                class="btn btn-lg w-100 text-start d-flex justify-content-between align-items-center"
+                [class.btn-outline-success]="!showAttachmentsSection()"
+                [class.btn-success]="showAttachmentsSection()"
+                [class.text-white]="showAttachmentsSection()"
+                style="border-radius: 0.5rem;"
+                (click)="toggleAttachmentsSection()">
+                <span>
+                  <i class="bi bi-paperclip me-2"></i>
+                  <strong>{{ showAttachmentsSection() ? 'Hide' : 'Show' }} Default Attachments</strong>
+                  @if (selectedAttachments().length > 0) {
+                    <span class="badge ms-2" [class.bg-white]="showAttachmentsSection()" [class.text-success]="showAttachmentsSection()" [class.bg-success]="!showAttachmentsSection()">
+                      {{ selectedAttachments().length }}
+                    </span>
+                  }
+                </span>
+                <i class="bi" [class.bi-chevron-down]="!showAttachmentsSection()" [class.bi-chevron-up]="showAttachmentsSection()"></i>
+              </button>
+            </div>
+
+            <!-- Attachments Management Section -->
+            @if (showAttachmentsSection()) {
+              <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header border-0" style="background: linear-gradient(90deg, #d1f4e0 0%, #a7e9c4 100%);">
+                  <h6 class="mb-0 fw-semibold" style="color: #0d6832;">
+                    <i class="bi bi-paperclip me-2"></i>
+                    Default Attachments Management
+                  </h6>
+                </div>
+                <div class="card-body bg-white">
+                  <!-- Attachment Type Tabs -->
+                  <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button 
+                        class="nav-link"
+                        [class.active]="activeAttachmentTab() === 'cms'"
+                        (click)="setActiveAttachmentTab('cms')"
+                        type="button">
+                        <i class="bi bi-file-earmark me-1"></i>CMS Documents
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button 
+                        class="nav-link"
+                        [class.active]="activeAttachmentTab() === 'tms'"
+                        (click)="setActiveAttachmentTab('tms')"
+                        type="button">
+                        <i class="bi bi-file-earmark-text me-1"></i>TMS Templates
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button 
+                        class="nav-link"
+                        [class.active]="activeAttachmentTab() === 'upload'"
+                        (click)="setActiveAttachmentTab('upload')"
+                        type="button">
+                        <i class="bi bi-cloud-upload me-1"></i>Upload Files
+                      </button>
+                    </li>
+                  </ul>
+
+                  <!-- Tab Content -->
+                  <div class="tab-content">
+                    <!-- CMS Documents Tab -->
+                    <div [class.d-none]="activeAttachmentTab() !== 'cms'">
+                      <div class="mb-3">
+                        <label class="form-label">Select CMS Document</label>
+                        <select class="form-select" #cmsDocSelect (change)="addCmsAttachment(cmsDocSelect.value); cmsDocSelect.value = ''">
+                          <option value="">Choose a document...</option>
+                          @for (doc of cmsDocuments(); track doc.id) {
+                            <option [value]="doc.id">
+                              {{ doc.name }} ({{ doc.extension }})
+                            </option>
+                          }
+                        </select>
+                        <small class="text-muted">
+                          <i class="bi bi-info-circle"></i> Select existing documents from CMS
+                        </small>
+                      </div>
+                    </div>
+
+                    <!-- TMS Templates Tab -->
+                    <div [class.d-none]="activeAttachmentTab() !== 'tms'">
+                      <div class="mb-3">
+                        <label class="form-label">Select TMS Template</label>
+                        <select class="form-select" #tmsTemplateSelect (change)="onTmsTemplateSelected(tmsTemplateSelect.value)">
+                          <option value="">Choose a template...</option>
+                          @for (tmsTemplate of tmsTemplates(); track tmsTemplate.id) {
+                            <option [value]="tmsTemplate.id">
+                              {{ tmsTemplate.name }} - {{ tmsTemplate.category || 'Uncategorized' }}
+                            </option>
+                          }
+                        </select>
+                        <small class="text-muted">
+                          <i class="bi bi-info-circle"></i> TMS templates will be generated when emails are sent
+                        </small>
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label fw-semibold">Export Format</label>
+                        <div class="btn-group w-100" role="group">
+                          <input type="radio" class="btn-check" name="tmsExportFormat" id="tms-pdf" value="PDF" checked #exportFormatPdf>
+                          <label class="btn btn-outline-primary" for="tms-pdf">
+                            <i class="bi bi-file-pdf me-1"></i> PDF
+                          </label>
+                          
+                          <input type="radio" class="btn-check" name="tmsExportFormat" id="tms-docx" value="DOCX" #exportFormatDocx>
+                          <label class="btn btn-outline-primary" for="tms-docx">
+                            <i class="bi bi-file-word me-1"></i> DOCX
+                          </label>
+                          
+                          <input type="radio" class="btn-check" name="tmsExportFormat" id="tms-excel" value="Excel" #exportFormatExcel>
+                          <label class="btn btn-outline-primary" for="tms-excel">
+                            <i class="bi bi-file-excel me-1"></i> Excel
+                          </label>
+                        </div>
+                      </div>
+
+                      <button 
+                        type="button" 
+                        class="btn btn-success w-100"
+                        (click)="addTmsAttachment(tmsTemplateSelect.value, exportFormatPdf.checked ? 'PDF' : exportFormatDocx.checked ? 'DOCX' : 'Excel'); tmsTemplateSelect.value = ''"
+                        [disabled]="!tmsTemplateSelect.value">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Add TMS Attachment
+                      </button>
+                    </div>
+
+                    <!-- Upload Files Tab -->
+                    <div [class.d-none]="activeAttachmentTab() !== 'upload'">
+                      <div class="upload-area border-2 rounded p-4 text-center position-relative">
+                        <div class="upload-placeholder">
+                          <i class="bi bi-cloud-arrow-up display-3 text-primary mb-3"></i>
+                          <h6 class="text-dark mb-2">Drag and drop your file here</h6>
+                          <p class="text-muted small mb-3">or click to browse</p>
+                          <span class="badge bg-light text-dark">Max 10MB • PDF, Word, Excel, Images, Text</span>
+                        </div>
+                        <input
+                          type="file"
+                          class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                          style="cursor: pointer;"
+                          (change)="onAttachmentFileSelected($event)"
+                          accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.txt">
+                      </div>
+                      <small class="text-muted d-block mt-2">
+                        <i class="bi bi-info-circle"></i> Supported formats: PDF, Word (.docx), Excel (.xlsx), Images (PNG, JPG), Text files
+                      </small>
+                    </div>
+                  </div>
+
+                  <!-- Selected Attachments List -->
+                  @if (selectedAttachments().length > 0) {
+                    <div class="mt-3">
+                      <strong class="d-block mb-2">Selected Attachments ({{ selectedAttachments().length }})</strong>
+                      <div class="list-group">
+                        @for (attachment of selectedAttachments(); track $index) {
+                          <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                              @if (attachment.sourceType === AttachmentSourceType.CmsDocument) {
+                                <i class="bi bi-file-earmark text-primary me-2"></i>
+                                <span class="badge bg-primary me-2">CMS</span>
+                              } @else if (attachment.sourceType === AttachmentSourceType.TmsTemplate) {
+                                <i class="bi bi-file-earmark-text text-info me-2"></i>
+                                <span class="badge bg-info me-2">TMS</span>
+                              } @else {
+                                <i class="bi bi-cloud-upload text-success me-2"></i>
+                                <span class="badge bg-success me-2">Upload</span>
+                              }
+                              <span>{{ attachment.displayName }}</span>
+                            </div>
+                            <button 
+                              type="button" 
+                              class="btn btn-sm btn-outline-danger"
+                              (click)="removeAttachment($index)">
+                              <i class="bi bi-x"></i>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </form>
+        </div>
+        <div class="modal-footer bg-white border-top">
+          <button type="button" class="btn btn-secondary shadow-sm" (click)="closeModal()">
+            <i class="bi bi-x-circle me-2"></i>
+            Cancel
+          </button>
+          <button type="button" class="btn shadow-sm px-4" 
+                  [class.btn-primary]="modalMode() === 'create'"
+                  [class.btn-success]="modalMode() === 'edit'"
+                  (click)="saveTemplate()">
+            <i class="bi" [class.bi-plus-circle-fill]="modalMode() === 'create'" [class.bi-check-circle-fill]="modalMode() === 'edit'" class="me-2"></i>
+            {{ modalMode() === 'create' ? 'Create Template' : 'Update Template' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Test Template Modal -->
+@if (showTestModal()) {
+  <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.6); z-index: 1060;">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content shadow-lg border-0">
+        <div class="modal-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-envelope-check me-2"></i>
+            Test Email Template: {{ getTestingTemplate()?.name }}
+          </h5>
+          <button type="button" class="btn-close btn-close-white" (click)="closeTestModal()"></button>
+        </div>
+        <div class="modal-body" style="background-color: #f8f9fa;">
+          @if (getTestingTemplate(); as template) {
+            <form>
+              <!-- Recipients Section -->
+              <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header border-0" style="background: linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%);">
+                  <h6 class="mb-0 fw-semibold" style="color: #1976d2;">
+                    <i class="bi bi-people-fill me-2"></i>
+                    Recipients
+                  </h6>
+                </div>
+                <div class="card-body bg-white">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      To <span class="text-danger">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      [(ngModel)]="testForm().to"
+                      name="to"
+                      placeholder="recipient@example.com (separate multiple with comma)"
+                      required>
+                    <small class="text-muted">Enter one or more email addresses separated by commas</small>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label fw-semibold">CC (Optional)</label>
+                      <input
+                        type="email"
+                        class="form-control"
+                        [(ngModel)]="testForm().cc"
+                        name="cc"
+                        placeholder="cc@example.com">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label fw-semibold">BCC (Optional)</label>
+                      <input
+                        type="email"
+                        class="form-control"
+                        [(ngModel)]="testForm().bcc"
+                        name="bcc"
+                        placeholder="bcc@example.com">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TMS Body Generation Section -->
+              @if (template.bodySourceType === EmailBodySourceType.TmsTemplate) {
+                <div class="card border-0 shadow-sm mb-4">
+                  <div class="card-header border-0" style="background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 100%);">
+                    <h6 class="mb-0 fw-semibold" style="color: #856404;">
+                      <i class="bi bi-file-earmark-text-fill me-2"></i>
+                      TMS Body Generation Required
+                    </h6>
+                  </div>
+                  <div class="card-body bg-white">
+                    <div class="alert alert-warning border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);">
+                      <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                          <div class="rounded-circle bg-warning bg-opacity-25 p-2" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-lightbulb-fill fs-4 text-warning"></i>
+                          </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                          <h6 class="alert-heading fw-bold mb-2" style="color: #856404;">Test Data Required for Email Body</h6>
+                          <p class="mb-2" style="color: #664d03;">This email template uses a TMS template to generate the email body content. Follow these steps:</p>
+                          <ol class="mb-0 ps-3" style="color: #664d03;">
+                            <li class="mb-1"><strong>Download</strong> the placeholder Excel file with default values</li>
+                            <li class="mb-1"><strong>Fill in</strong> your test data (customer info, order details, etc.)</li>
+                            <li><strong>Upload</strong> the completed Excel file below</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                      <button
+                        type="button"
+                        class="btn btn-outline-primary shadow-sm"
+                        (click)="downloadTmsPlaceholderForBody()">
+                        <i class="bi bi-download me-2"></i>
+                        Download Placeholder Excel
+                      </button>
+                      @if (testForm().tmsBodyTestFile) {
+                        <div class="alert alert-success mb-0 py-2 px-3 border-0 shadow-sm" role="alert">
+                          <i class="bi bi-check-circle-fill me-2"></i>
+                          <strong>{{ testForm().tmsBodyTestFile!.name }}</strong>
+                          <span class="text-muted ms-2">({{ (testForm().tmsBodyTestFile!.size / 1024).toFixed(2) }} KB)</span>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="upload-area border-2 rounded shadow-sm p-4 text-center position-relative" 
+                         style="border-style: dashed !important; border-color: #0d6efd !important; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); transition: all 0.3s ease;"
+                         onmouseover="this.style.borderColor='#0a58ca'; this.style.background='linear-gradient(135deg, #e7f3ff 0%, #cfe2ff 100%)'"
+                         onmouseout="this.style.borderColor='#0d6efd'; this.style.background='linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'">
+                      @if (!testForm().tmsBodyTestFile) {
+                        <div class="upload-placeholder">
+                          <i class="bi bi-file-earmark-excel display-1 text-success mb-3"></i>
+                          <h6 class="text-dark mb-2 fw-bold">Upload Your Filled Excel File</h6>
+                          <p class="text-muted small mb-3">Click to browse or drag and drop your file here</p>
+                          <span class="badge bg-success bg-opacity-75 shadow-sm px-3 py-2">
+                            <i class="bi bi-file-excel me-1"></i> Excel files only (.xlsx, .xls)
+                          </span>
+                        </div>
+                      } @else {
+                        <div class="file-selected">
+                          <i class="bi bi-file-earmark-check display-1 text-success mb-3"></i>
+                          <h6 class="text-success mb-1 fw-bold">{{ testForm().tmsBodyTestFile!.name }}</h6>
+                          <p class="text-muted small mb-0">{{ (testForm().tmsBodyTestFile!.size / 1024).toFixed(2) }} KB • Ready to use</p>
+                        </div>
+                      }
+                      <input
+                        type="file"
+                        class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                        style="cursor: pointer;"
+                        accept=".xlsx,.xls"
+                        (change)="onTmsBodyTestFileSelected($event)">
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- TMS Attachments Test Data -->
+              @if (hasTmsAttachments()) {
+                <div class="card border-0 shadow-sm mb-4">
+                  <div class="card-header border-0" style="background: linear-gradient(90deg, #d1f4e0 0%, #a7e9c4 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6 class="mb-0 fw-semibold" style="color: #0d6832;">
+                        <i class="bi bi-paperclip me-2"></i>
+                        TMS Attachment Test Data
+                      </h6>
+                    </div>
+                  </div>
+                  <div class="card-body bg-white">
+                    <div class="alert alert-info border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #e7f3ff 0%, #cfe2ff 100%);">
+                      <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                          <div class="rounded-circle bg-info bg-opacity-25 p-2" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-info-circle-fill fs-4 text-info"></i>
+                          </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                          <h6 class="alert-heading fw-bold mb-2 text-info">Test Data Required for TMS Attachments</h6>
+                          <p class="mb-2 text-dark">Each TMS template attachment needs test data to generate the document:</p>
+                          <ul class="mb-0 ps-3 text-dark">
+                            <li class="mb-1">Download the placeholder Excel for each attachment</li>
+                            <li class="mb-1">Fill in the required test data</li>
+                            <li>Upload the completed files to generate the attachments</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="row g-3">
+                      @for (attachment of selectedAttachments(); track $index) {
+                        @if (attachment.sourceType === AttachmentSourceType.TmsTemplate && attachment.tmsTemplateId) {
+                          <div class="col-12">
+                            <div class="card border shadow-sm h-100" style="border-color: #28a745 !important; border-width: 2px !important;">
+                              <div class="card-header bg-success bg-opacity-10 border-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                  <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-bold text-success">
+                                      <i class="bi bi-file-earmark-text-fill me-2"></i>
+                                      {{ attachment.displayName }}
+                                    </h6>
+                                    <div class="d-flex gap-2 align-items-center">
+                                      <span class="badge" 
+                                            [class.bg-danger]="attachment.tmsExportFormat === 'PDF'"
+                                            [class.bg-primary]="attachment.tmsExportFormat === 'DOCX'"
+                                            [class.bg-success]="attachment.tmsExportFormat === 'Excel'"
+                                            style="font-size: 0.75rem;">
+                                        <i class="bi" 
+                                           [class.bi-file-pdf]="attachment.tmsExportFormat === 'PDF'"
+                                           [class.bi-file-word]="attachment.tmsExportFormat === 'DOCX'"
+                                           [class.bi-file-excel]="attachment.tmsExportFormat === 'Excel'"></i>
+                                        {{ attachment.tmsExportFormat || 'PDF' }} Format
+                                      </span>
+                                      @if (testForm().tmsAttachmentTestFiles[attachment.tmsTemplateId]) {
+                                        <span class="badge bg-success">
+                                          <i class="bi bi-check-circle-fill me-1"></i>
+                                          Data Uploaded
+                                        </span>
+                                      } @else {
+                                        <span class="badge bg-warning">
+                                          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                          Awaiting Data
+                                        </span>
+                                      }
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-success shadow-sm"
+                                    (click)="downloadTmsPlaceholderForAttachment($index)">
+                                    <i class="bi bi-download me-1"></i>
+                                    Download Placeholder
+                                  </button>
+                                </div>
+                              </div>
+                              <div class="card-body">
+                                <div class="upload-area border-2 rounded shadow-sm p-4 text-center position-relative" 
+                                     style="min-height: 180px; border-style: dashed !important; border-color: #28a745 !important; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); transition: all 0.3s ease;"
+                                     onmouseover="this.style.borderColor='#1e7e34'; this.style.background='linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)'"
+                                     onmouseout="this.style.borderColor='#28a745'; this.style.background='linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'">
+                                  @if (!testForm().tmsAttachmentTestFiles[attachment.tmsTemplateId]) {
+                                    <div class="upload-placeholder">
+                                      <i class="bi bi-cloud-arrow-up display-1 text-success mb-3" style="font-size: 4rem;"></i>
+                                      <h6 class="text-dark mb-2 fw-bold">Upload Test Data Excel</h6>
+                                      <p class="text-muted small mb-3">Click to browse or drag and drop your filled Excel file</p>
+                                      <span class="badge bg-success bg-opacity-75 shadow-sm px-3 py-2">
+                                        <i class="bi bi-file-excel me-1"></i> Excel files only (.xlsx, .xls)
+                                      </span>
+                                    </div>
+                                  } @else {
+                                    <div class="file-selected">
+                                      <i class="bi bi-file-earmark-check display-1 text-success mb-3" style="font-size: 4rem;"></i>
+                                      <h6 class="text-success mb-1 fw-bold">
+                                        <i class="bi bi-check-circle-fill me-2"></i>
+                                        {{ testForm().tmsAttachmentTestFiles[attachment.tmsTemplateId].name }}
+                                      </h6>
+                                      <p class="text-muted mb-2">
+                                        {{ (testForm().tmsAttachmentTestFiles[attachment.tmsTemplateId].size / 1024).toFixed(2) }} KB
+                                      </p>
+                                      <span class="badge bg-success-subtle text-success border border-success">
+                                        <i class="bi bi-check2-all me-1"></i>
+                                        Ready for generation
+                                      </span>
+                                    </div>
+                                  }
+                                  <input
+                                    type="file"
+                                    class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                                    style="cursor: pointer;"
+                                    accept=".xlsx,.xls"
+                                    (change)="onTmsAttachmentTestFileSelected($event, attachment.tmsTemplateId!)">
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- Template Preview -->
+              <div class="card border-0 shadow-sm">
+                <div class="card-header border-0" style="background: linear-gradient(90deg, #e9ecef 0%, #dee2e6 100%);">
+                  <h6 class="mb-0 fw-semibold text-dark">
+                    <i class="bi bi-eye-fill me-2"></i>
+                    Template Information
+                  </h6>
+                </div>
+                <div class="card-body bg-white">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-start">
+                        <i class="bi bi-envelope-fill text-primary me-2 mt-1"></i>
+                        <div>
+                          <small class="text-muted d-block mb-1">Subject</small>
+                          <strong class="text-dark">{{ template.subject }}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="d-flex align-items-start">
+                        <i class="bi bi-gear-fill text-secondary me-2 mt-1"></i>
+                        <div>
+                          <small class="text-muted d-block mb-1">Body Source</small>
+                          <span class="badge" 
+                                [class.bg-info]="template.bodySourceType === EmailBodySourceType.PlainText"
+                                [class.bg-primary]="template.bodySourceType === EmailBodySourceType.TmsTemplate"
+                                [class.bg-success]="template.bodySourceType === EmailBodySourceType.CustomTemplate">
+                            {{ getBodySourceLabel(template.bodySourceType) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div class="d-flex align-items-start">
+                        <i class="bi bi-paperclip me-2 mt-1" [class.text-success]="selectedAttachments().length > 0" [class.text-muted]="selectedAttachments().length === 0"></i>
+                        <div class="w-100">
+                          <small class="text-muted d-block mb-2">Default Attachments</small>
+                          @if (selectedAttachments().length === 0) {
+                            <span class="text-muted fst-italic">No attachments</span>
+                          } @else {
+                            <div class="d-flex flex-wrap gap-2">
+                              @for (att of selectedAttachments(); track $index) {
+                                <span class="badge shadow-sm py-2 px-3"
+                                      [class.bg-primary]="att.sourceType === AttachmentSourceType.CmsDocument"
+                                      [class.bg-info]="att.sourceType === AttachmentSourceType.TmsTemplate"
+                                      [class.bg-success]="att.sourceType === AttachmentSourceType.CustomFile">
+                                  @if (att.sourceType === AttachmentSourceType.CmsDocument) {
+                                    <i class="bi bi-file-earmark me-1"></i>
+                                  } @else if (att.sourceType === AttachmentSourceType.TmsTemplate) {
+                                    <i class="bi bi-file-earmark-text me-1"></i>
+                                  } @else {
+                                    <i class="bi bi-cloud-upload me-1"></i>
+                                  }
+                                  {{ att.displayName }}
+                                </span>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          }
+        </div>
+        <div class="modal-footer bg-white border-top">
+          <button type="button" class="btn btn-secondary shadow-sm" (click)="closeTestModal()">
+            <i class="bi bi-x-circle me-2"></i>
+            Cancel
+          </button>
+          <button type="button" class="btn btn-success shadow-sm px-4" (click)="sendTestEmail()">
+            <i class="bi bi-send-fill me-2"></i>
+            Send Test Email
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

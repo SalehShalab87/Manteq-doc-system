@@ -129,7 +129,7 @@ namespace CMS.WebApi.Services
             try
             {
                 var document = await _context.Documents
-                    .FirstOrDefaultAsync(d => d.Id == id);
+                    .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted);
 
                 if (document == null)
                 {
@@ -185,7 +185,7 @@ namespace CMS.WebApi.Services
         public async Task<string> GetDocumentFilePathAsync(Guid id)
         {
             var document = await _context.Documents
-                .FirstOrDefaultAsync(d => d.Id == id);
+                .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted);
 
             if (document == null)
             {
@@ -206,6 +206,7 @@ namespace CMS.WebApi.Services
             try
             {
                 var documents = await _context.Documents
+                    .Where(d => !d.IsDeleted)
                     .OrderByDescending(d => d.CreationDate)
                     .ToListAsync();
 

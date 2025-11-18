@@ -170,5 +170,20 @@ namespace TMS.WebApi.Models
         
         public ExportFormat ExportFormat { get; set; } = ExportFormat.Word;
     }
+
+    /// <summary>
+    /// Request model for testing template without saving
+    /// Requires both template file and filled Excel file
+    /// </summary>
+    public class TestTemplateRequest
+    {
+        [Required]
+        public IFormFile TemplateFile { get; set; } = null!;
+        
+        [Required]
+        public IFormFile ExcelFile { get; set; } = null!;
+        
+        public ExportFormat ExportFormat { get; set; } = ExportFormat.Word;
+    }
 }
 

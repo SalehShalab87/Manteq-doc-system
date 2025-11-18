@@ -19,6 +19,7 @@ namespace TMS.WebApi.Services
         Task<bool> DeleteTemplateAsync(Guid templateId);
         Task<List<string>> ExtractPlaceholdersFromFileAsync(IFormFile file);
         Task<Dictionary<string, string>> GetCustomPropertiesWithValuesAsync(string filePath);
+        Task<Dictionary<string, string>> ExtractPlaceholdersFromStreamAsync(Stream stream, string extension);
     }
 
     public class TemplateService : ITemplateService
@@ -280,6 +281,51 @@ namespace TMS.WebApi.Services
         public async Task<Dictionary<string, string>> GetCustomPropertiesWithValuesAsync(string templatePath)
         {
             return await Task.Run(() => GetCustomPropertiesFromFile(templatePath));
+        }
+
+        public async Task<Dictionary<string, string>> ExtractPlaceholdersFromStreamAsync(Stream stream, string extension)
+        {
+            return await Task.Run(() =>
+            {
+                var properties = new Dictionary<string, string>();
+                
+                try
+                {
+                    switch (extension.ToLowerInvariant())
+                    {
+                        case ".docx":
+                            using (var doc = WordprocessingDocument.Open(stream, false))
+                            {
+                                properties = GetCustomPropertiesFromOpenXml(doc);
+                            }
+                            break;
+
+                        case ".xlsx":
+                            using (var doc = SpreadsheetDocument.Open(stream, false))
+                            {
+                                properties = GetCustomPropertiesFromOpenXml(doc);
+                            }
+                            break;
+
+                        case ".pptx":
+                            using (var doc = PresentationDocument.Open(stream, false))
+                            {
+                                properties = GetCustomPropertiesFromOpenXml(doc);
+                            }
+                            break;
+
+                        default:
+                            throw new ArgumentException($"Unsupported file extension: {extension}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error extracting placeholders from stream with extension {Extension}", extension);
+                    throw;
+                }
+
+                return properties;
+            });
         }
 
         private async Task<string> SaveTemporaryFileAsync(IFormFile file)

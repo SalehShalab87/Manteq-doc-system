@@ -212,4 +212,30 @@ namespace EmailService.WebApi.Models
         /// </summary>
         public string? ErrorMessage { get; set; }
     }
+
+    /// <summary>
+    /// Request to test an email template with full support for all body types and attachments
+    /// </summary>
+    public class TestEmailTemplateRequest
+    {
+        [Required]
+        public Guid TemplateId { get; set; }
+
+        [Required]
+        public List<string> ToRecipients { get; set; } = new();
+        
+        public List<string> CcRecipients { get; set; } = new();
+        public List<string> BccRecipients { get; set; } = new();
+
+        /// <summary>
+        /// Property values for TMS body generation (if template uses TMS for body)
+        /// </summary>
+        public Dictionary<string, string>? TmsBodyPropertyValues { get; set; }
+
+        /// <summary>
+        /// Property values for each TMS attachment by attachment index
+        /// Key: attachment index (0-based), Value: property values for that TMS template
+        /// </summary>
+        public Dictionary<int, Dictionary<string, string>>? TmsAttachmentPropertyValues { get; set; }
+    }
 }

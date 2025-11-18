@@ -14,5 +14,13 @@ namespace CMS.WebApi.Services
         Task<bool> IncrementSentCountAsync(Guid id);
         Task<bool> IncrementFailureCountAsync(Guid id);
         Task<EmailTemplateAnalyticsResponse?> GetEmailTemplateAnalyticsAsync(Guid id);
+        
+        // Additional methods for template management
+        Task<EmailTemplate?> GetTemplateByIdAsync(Guid id);
+        Task<List<EmailTemplate>> GetAllTemplatesAsync();
+        Task<EmailTemplate> CreateTemplateAsync(CreateEmailTemplateRequest request);
+        Task<EmailTemplate?> UpdateTemplateAsync(Guid id, CreateEmailTemplateRequest request);
+        Task<bool> DeleteTemplateAsync(Guid id);
+        Task<List<EmailTemplateAttachment>> GetTemplateAttachmentsAsync(Guid templateId);
     }
 }

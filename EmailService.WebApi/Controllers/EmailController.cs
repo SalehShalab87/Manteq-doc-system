@@ -236,5 +236,56 @@ namespace EmailService.WebApi.Controllers
                 service = "EmailService.WebApi"
             });
         }
+
+        /// <summary>
+        /// Test an email template with full support for all body types and attachments
+        /// </summary>
+        /// <remarks>
+        /// This endpoint tests email templates with support for:
+        /// - Plain text body
+        /// - TMS-generated HTML body
+        /// - Custom HTML template body
+        /// - Multiple attachments (CMS documents, TMS-generated files, custom files)
+        /// 
+        /// For TMS body generation, provide TmsBodyPropertyValues.
+        /// For TMS attachments, provide TmsAttachmentPropertyValues indexed by attachment position.
+        /// </remarks>
+        /// <param name="request">Test email request</param>
+        /// <returns>Email send response</returns>
+        [HttpPost("test-template")]
+        [ProducesResponseType(typeof(EmailSendResponse), 200)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
+        [ProducesResponseType(500)]
+        public async Task<IActionResult> TestEmailTemplate([FromBody] TestEmailTemplateRequest request)
+        {
+            _logger.LogInformation("Testing email template: {TemplateId} to {RecipientCount} recipients", 
+                request.TemplateId, request.ToRecipients.Count);
+
+            try
+            {
+                var response = await _emailService.TestEmailTemplateAsync(request);
+                
+                if (response.Status == EmailStatus.Sent)
+                {
+                    _logger.LogInformation("Test email sent successfully: {EmailId}", response.EmailId);
+                    return Ok(response);
+                }
+                else
+                {
+                    _logger.LogWarning("Test email failed: {EmailId}, Error: {Error}", response.EmailId, response.ErrorMessage);
+                    return StatusCode(500, response);
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid request for test-template: {Error}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error testing email template: {TemplateId}", request.TemplateId);
+                return StatusCode(500, new { error = "An unexpected error occurred while testing the email template" });
+            }
+        }
     }
 }

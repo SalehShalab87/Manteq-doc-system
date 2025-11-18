@@ -41,7 +41,7 @@ namespace CMS.WebApi.Services
             try
             {
                 return await _context.Templates
-                    .FirstOrDefaultAsync(t => t.Id == id);
+                    .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
             }
             catch (Exception ex)
             {
@@ -55,6 +55,7 @@ namespace CMS.WebApi.Services
             try
             {
                 return await _context.Templates
+                    .Where(t => !t.IsDeleted)
                     .OrderByDescending(t => t.CreatedAt)
                     .ToListAsync();
             }
@@ -70,7 +71,7 @@ namespace CMS.WebApi.Services
             try
             {
                 return await _context.Templates
-                    .Where(t => t.IsActive)
+                    .Where(t => t.IsActive && !t.IsDeleted)
                     .OrderByDescending(t => t.CreatedAt)
                     .ToListAsync();
             }
@@ -86,7 +87,7 @@ namespace CMS.WebApi.Services
             try
             {
                 return await _context.Templates
-                    .Where(t => t.Category == category && t.IsActive)
+                    .Where(t => t.Category == category && t.IsActive && !t.IsDeleted)
                     .OrderByDescending(t => t.CreatedAt)
                     .ToListAsync();
             }
@@ -133,15 +134,20 @@ namespace CMS.WebApi.Services
             try
             {
                 var template = await _context.Templates.FindAsync(id);
-                if (template == null)
+                if (template == null || template.IsDeleted)
                 {
                     return false;
                 }
 
-                _context.Templates.Remove(template);
+                // Soft delete
+                template.IsDeleted = true;
+                template.DeletedAt = DateTime.UtcNow;
+                template.DeletedBy = "SYSTEM"; // TODO: Get from HttpContext
+                template.UpdatedAt = DateTime.UtcNow;
+                
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Template deleted successfully: {TemplateId}", id);
+                _logger.LogInformation("Template moved to trash: {TemplateId}", id);
                 return true;
             }
             catch (Exception ex)

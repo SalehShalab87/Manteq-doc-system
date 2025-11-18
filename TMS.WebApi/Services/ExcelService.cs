@@ -9,6 +9,7 @@ namespace TMS.WebApi.Services
     public interface IExcelService
     {
         Task<byte[]> GeneratePlaceholdersExcelAsync(List<string> placeholders);
+        Task<byte[]> GeneratePlaceholdersExcelWithValuesAsync(Dictionary<string, string> placeholders);
         Task<Dictionary<string, string>> ReadExcelToJsonAsync(Stream excelStream);
     }
 
@@ -32,6 +33,16 @@ namespace TMS.WebApi.Services
         /// </summary>
         public async Task<byte[]> GeneratePlaceholdersExcelAsync(List<string> placeholders)
         {
+            var placeholderDict = placeholders.ToDictionary(p => p, p => string.Empty);
+            return await GeneratePlaceholdersExcelWithValuesAsync(placeholderDict);
+        }
+
+        /// <summary>
+        /// Generate an Excel file with two columns: Placeholder | Value
+        /// Placeholders and their default values are pre-filled
+        /// </summary>
+        public async Task<byte[]> GeneratePlaceholdersExcelWithValuesAsync(Dictionary<string, string> placeholders)
+        {
             return await Task.Run(() =>
             {
                 try
@@ -54,19 +65,22 @@ namespace TMS.WebApi.Services
                     }
 
                     // Add placeholders to column A, starting from row 2
-                    for (int i = 0; i < placeholders.Count; i++)
+                    int rowIndex = 2;
+                    foreach (var kvp in placeholders)
                     {
-                        int row = i + 2;
-                        worksheet.Cells[row, 1].Value = placeholders[i];
+                        worksheet.Cells[rowIndex, 1].Value = kvp.Key;
+                        worksheet.Cells[rowIndex, 2].Value = kvp.Value; // Pre-fill with default value
                         
                         // Style placeholder cells (read-only appearance)
-                        worksheet.Cells[row, 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                        worksheet.Cells[row, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                        worksheet.Cells[row, 1].Style.Font.Bold = true;
+                        worksheet.Cells[rowIndex, 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                        worksheet.Cells[rowIndex, 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                        worksheet.Cells[rowIndex, 1].Style.Font.Bold = true;
                         
                         // Style value cells (editable appearance)
-                        worksheet.Cells[row, 2].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                        worksheet.Cells[row, 2].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.White);
+                        worksheet.Cells[rowIndex, 2].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                        worksheet.Cells[rowIndex, 2].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.White);
+                        
+                        rowIndex++;
                     }
 
                     // Auto-fit columns

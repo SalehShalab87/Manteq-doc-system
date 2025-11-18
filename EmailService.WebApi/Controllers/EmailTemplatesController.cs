@@ -1,23 +1,27 @@
 using Microsoft.AspNetCore.Mvc;
 using CMS.WebApi.Services;
 using CMS.WebApi.Models;
+using EmailService.WebApi.Models;
 
 namespace EmailService.WebApi.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/email-templates")]
     public class EmailTemplatesController : ControllerBase
     {
         private readonly IEmailTemplateService _emailTemplateService;
+        private readonly IEmailTemplateFileService _fileService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<EmailTemplatesController> _logger;
 
         public EmailTemplatesController(
             IEmailTemplateService emailTemplateService,
+            IEmailTemplateFileService fileService,
             IHttpContextAccessor httpContextAccessor,
             ILogger<EmailTemplatesController> logger)
         {
             _emailTemplateService = emailTemplateService;
+            _fileService = fileService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
@@ -284,6 +288,110 @@ namespace EmailService.WebApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving email template categories");
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Upload a custom HTML/XHTML template for an existing email template
+        /// </summary>
+        [HttpPost("{id:guid}/upload-template")]
+        [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UploadCustomTemplate(Guid id, [FromForm] CustomTemplateUploadRequest request)
+        {
+            try
+            {
+                if (request.File == null || request.File.Length == 0)
+                    return BadRequest(new { error = "No file uploaded" });
+
+                var extension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
+                if (extension != ".mht" && extension != ".mhtml")
+                {
+                    return BadRequest(new
+                    {
+                        error = "Invalid template format. Only .mht or .mhtml files are accepted. " +
+                                "Please export from Microsoft Word using: File → Save As → Web Page, Single File (*.mht)."
+                    });
+                }
+
+                // Save the file
+                var filePath = await _fileService.SaveCustomTemplateAsync(request.File, id);
+
+                // Link to template
+                var updateRequest = new UpdateEmailTemplateRequest
+                {
+                    CustomTemplateFilePath = filePath,
+                    BodySourceType = EmailBodySourceType.CustomTemplate
+                };
+
+                var updatedTemplate = await _emailTemplateService.UpdateEmailTemplateAsync(id, updateRequest);
+                if (updatedTemplate == null)
+                    return NotFound(new { error = "Email template not found" });
+
+                _logger.LogInformation("Custom template uploaded for email template {TemplateId}", id);
+                return Ok(updatedTemplate);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid file upload: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading custom template for template {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Download/preview a custom template file
+        /// </summary>
+        [HttpGet("{id:guid}/custom-template")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetCustomTemplate(Guid id)
+        {
+            try
+            {
+                var template = await _emailTemplateService.GetEmailTemplateByIdAsync(id);
+                if (template == null || string.IsNullOrEmpty(template.CustomTemplateFilePath))
+                    return NotFound(new { error = "Custom template not found" });
+
+                var fileBytes = await _fileService.GetFileAsync(template.CustomTemplateFilePath);
+                if (fileBytes == null)
+                    return NotFound(new { error = "Template file not found on disk" });
+
+                var fileName = Path.GetFileName(template.CustomTemplateFilePath);
+                return File(fileBytes, "text/html", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving custom template for template {TemplateId}", id);
+                return StatusCode(500, new { error = "Internal server error occurred" });
+            }
+        }
+
+        /// <summary>
+        /// Get attachments for an email template
+        /// </summary>
+        [HttpGet("{id:guid}/attachments")]
+        [ProducesResponseType(typeof(List<EmailTemplateAttachment>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetEmailTemplateAttachments(Guid id)
+        {
+            try
+            {
+                var template = await _emailTemplateService.GetEmailTemplateByIdAsync(id);
+                if (template == null)
+                    return NotFound(new { error = "Email template not found" });
+
+                return Ok(template.Attachments ?? new List<EmailTemplateAttachmentResponse>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving attachments for template {TemplateId}", id);
                 return StatusCode(500, new { error = "Internal server error occurred" });
             }
         }
