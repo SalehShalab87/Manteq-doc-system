@@ -21,7 +21,7 @@ export class AppComponent {
   currentConfig = signal<ManteqLibConfig>({
     companyName: 'Manteq Doc Portal',
     companyLogo: 'https://cdn-icons-png.flaticon.com/512/861/861377.png',
-    primaryColor: '#222831',
+    primaryColor: '#16098dff',
     accentColor: '#112D4E',
     fontStyle: 'OpenSans',
     disclaimer: 'Built By ❤️ With Manteq Team',

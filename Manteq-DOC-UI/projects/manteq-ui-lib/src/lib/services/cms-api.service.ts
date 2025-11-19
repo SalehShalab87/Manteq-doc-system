@@ -135,6 +135,12 @@ export class CmsApiService {
     );
   }
 
+  getTemplatePlaceholders(name: string, isActive: boolean = true): Observable<string[]> {
+    return this.http.get<string[]>(
+      `${this.baseUrl}${API_ENDPOINTS.CMS.TEMPLATE_PLACEHOLDERS(name, isActive)}`
+    );
+  }
+
   /**
    * Update CMS template
    */

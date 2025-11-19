@@ -61,8 +61,10 @@ namespace CMS.WebApi.Services
                     throw new ArgumentException("File is empty");
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".html" && extension != ".xhtml")
-                    throw new ArgumentException("Only .html and .xhtml files are allowed");
+                // Accept only MHTML variants for custom email templates
+                var allowedExtensions = new[] { ".mht", ".mhtml" };
+                if (!allowedExtensions.Contains(extension))
+                    throw new ArgumentException("Only .mht and .mhtml files are allowed");
 
                 if (file.Length > 5 * 1024 * 1024) // 5MB limit
                     throw new ArgumentException("File size exceeds 5MB limit");
@@ -190,15 +192,13 @@ namespace CMS.WebApi.Services
         {
             try
             {
-                // Look for template file with .html or .xhtml extension
-                var htmlFilePath = Path.Combine(_emailTemplatesPath, $"{templateId}_template.html");
-                var xhtmlFilePath = Path.Combine(_emailTemplatesPath, $"{templateId}_template.xhtml");
+                // Look for template file with MHTML variants only (.mht, .mhtml)
+                var candidates = new[] {
+                    Path.Combine(_emailTemplatesPath, $"{templateId}_template.mht"),
+                    Path.Combine(_emailTemplatesPath, $"{templateId}_template.mhtml")
+                };
 
-                string? filePath = null;
-                if (File.Exists(htmlFilePath))
-                    filePath = htmlFilePath;
-                else if (File.Exists(xhtmlFilePath))
-                    filePath = xhtmlFilePath;
+                string? filePath = candidates.FirstOrDefault(File.Exists);
 
                 if (filePath == null)
                 {

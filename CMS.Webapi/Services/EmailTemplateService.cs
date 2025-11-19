@@ -79,13 +79,16 @@ namespace CMS.WebApi.Services
             return emailTemplate != null ? MapToResponse(emailTemplate) : null;
         }
 
-        public async Task<List<EmailTemplateResponse>> GetAllEmailTemplatesAsync(bool? isActive = null, string? category = null)
+        public async Task<List<EmailTemplateResponse>> GetAllEmailTemplatesAsync(string? name,bool? isActive = null, string? category = null)
         {
             var query = _context.EmailTemplates
                 .Include(e => e.Template)
                 .Where(e => !e.IsDeleted)
                 .AsQueryable();
-
+            if (!string.IsNullOrEmpty(name))
+            {
+                query = query.Where(e => e.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+            }
             if (isActive.HasValue)
                 query = query.Where(e => e.IsActive == isActive.Value);
 
@@ -413,6 +416,27 @@ namespace CMS.WebApi.Services
                 .Where(a => a.EmailTemplateId == templateId)
                 .OrderBy(a => a.DisplayOrder)
                 .ToListAsync();
+        }
+
+        public async Task<bool> SetCustomTemplateFilePathAsync(Guid templateId, string filePath, string updatedBy)
+        {
+            var emailTemplate = await _context.EmailTemplates.FindAsync(templateId);
+            if (emailTemplate == null || emailTemplate.IsDeleted)
+                return false;
+
+            emailTemplate.CustomTemplateFilePath = filePath;
+            // Optionally track who updated (CreatedBy used as fallback since Updated fields not present)
+            try
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Updated custom template file path for template {TemplateId}: {Path}", templateId, filePath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update custom template file path for template {TemplateId}", templateId);
+                return false;
+            }
         }
 
         private string GetCurrentUserId()

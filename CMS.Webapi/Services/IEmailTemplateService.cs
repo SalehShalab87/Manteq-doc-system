@@ -6,7 +6,7 @@ namespace CMS.WebApi.Services
     {
         Task<EmailTemplateResponse> CreateEmailTemplateAsync(CreateEmailTemplateRequest request, string createdBy);
         Task<EmailTemplateResponse?> GetEmailTemplateByIdAsync(Guid id);
-        Task<List<EmailTemplateResponse>> GetAllEmailTemplatesAsync(bool? isActive = null, string? category = null);
+        Task<List<EmailTemplateResponse>> GetAllEmailTemplatesAsync(string? name = null,bool? isActive = null, string? category = null);
         Task<EmailTemplateResponse?> UpdateEmailTemplateAsync(Guid id, UpdateEmailTemplateRequest request);
         Task<bool> DeleteEmailTemplateAsync(Guid id);
         Task<bool> ActivateEmailTemplateAsync(Guid id);
@@ -22,5 +22,8 @@ namespace CMS.WebApi.Services
         Task<EmailTemplate?> UpdateTemplateAsync(Guid id, CreateEmailTemplateRequest request);
         Task<bool> DeleteTemplateAsync(Guid id);
         Task<List<EmailTemplateAttachment>> GetTemplateAttachmentsAsync(Guid templateId);
+        
+        // Set the stored custom template file path after successful upload
+        Task<bool> SetCustomTemplateFilePathAsync(Guid templateId, string filePath, string updatedBy);
     }
 }
