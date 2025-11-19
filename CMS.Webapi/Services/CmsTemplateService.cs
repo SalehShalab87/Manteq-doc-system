@@ -66,6 +66,43 @@ namespace CMS.WebApi.Services
             }
         }
 
+        public async Task<List<string>> GetTemplatePlaceholdersAsync(string name, bool isActive = true)
+        {
+            try
+            {
+                var template = await _context.Templates
+                    .FirstOrDefaultAsync(t => t.Name == name && t.IsActive == isActive && !t.IsDeleted);
+
+                if (template == null)
+                {
+                    throw new Exception($"Template with name '{name}' not found or inactive.");
+                }
+
+                return template.Placeholders;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving template placeholders for: {TemplateName}", name);
+                throw;
+            }
+        }
+
+        public async Task<List<Template>> GetTemplatesByNameAsync(string name)
+        {
+            try
+            {
+                return await _context.Templates
+                    .Where(t => t.Name.Contains(name, StringComparison.OrdinalIgnoreCase) && !t.IsDeleted)
+                    .OrderByDescending(t => t.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving templates by name: {Name}", name);
+                throw;
+            }
+        }
+
         public async Task<List<Template>> GetActiveTemplatesAsync()
         {
             try

@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
     DOCUMENTS_TYPES: '/api/documents/types',
     TEMPLATES: '/api/templates',
     TEMPLATES_BY_ID: (id: string) => `/api/templates/${id}`,
+    TEMPLATE_PLACEHOLDERS: (name: string, isActive: boolean = true) => `/api/templates/placeholders?name=${encodeURIComponent(name)}&isActive=${isActive}`,
     TEMPLATES_CREATE: '/api/templates',
     TEMPLATES_UPDATE: (id: string) => `/api/templates/${id}`,
     TEMPLATES_DELETE: (id: string) => `/api/templates/${id}`,

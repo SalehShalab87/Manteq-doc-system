@@ -68,13 +68,17 @@ namespace CMS.WebApi.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Template>>> GetAllTemplates(
             [FromQuery] string? category = null,
+            [FromQuery] string? name = null,
             [FromQuery] bool? isActive = null)
         {
             try
             {
                 List<Template> templates;
-
-                if (!string.IsNullOrEmpty(category))
+                if (!string.IsNullOrEmpty(name))
+                {
+                    templates = await _templateService.GetTemplatesByNameAsync(name);
+                }
+                else if (!string.IsNullOrEmpty(category))
                 {
                     templates = await _templateService.GetTemplatesByCategoryAsync(category);
                 }
@@ -92,6 +96,24 @@ namespace CMS.WebApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving templates");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        ///<summary>
+        /// Get template placeholders by name
+        /// </summary>
+        [HttpGet("placeholders")]
+        public async Task<ActionResult<List<string>>> GetTemplatePlaceholders([FromQuery] string name, [FromQuery] bool isActive = true)
+        {
+            try
+            {
+                var placeholders = await _templateService.GetTemplatePlaceholdersAsync(name, isActive);
+                return Ok(placeholders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving placeholders for template {TemplateName}", name);
                 return StatusCode(500, new { error = ex.Message });
             }
         }

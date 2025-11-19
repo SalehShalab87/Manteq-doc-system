@@ -129,12 +129,15 @@ namespace CMS.WebApi.Controllers
         [HttpGet]
         [ProducesResponseType(typeof(List<RetrieveDocumentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllDocuments([FromQuery] bool? isActive = null, [FromQuery] string? type = null)
+        public async Task<IActionResult> GetAllDocuments([FromQuery] string? name,[FromQuery] bool? isActive = null, [FromQuery] string? type = null)
         {
             try
             {
                 var documents = await _documentService.GetAllDocumentsAsync();
-                
+                if (!string.IsNullOrEmpty(name))
+                {
+                    documents = documents.Where(d => d.Name.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
                 // Apply filters
                 if (isActive.HasValue)
                     documents = documents.Where(d => d.IsActive == isActive.Value).ToList();

@@ -438,14 +438,18 @@ namespace EmailService.WebApi.Services
                         break;
 
                     case EmailBodySourceType.CustomTemplate:
-                        if (string.IsNullOrEmpty(template.CustomTemplateFilePath))
+                        // Try to get the custom template content from the email template service.
+                        // The service should be responsible for resolving the storage path (in CMS or filesystem)
+                        // using the template.Id. We don't require the frontend to pass the raw path.
+                        var customHtmlContent = await _emailTemplateService.GetCustomTemplateContentAsync(template.Id);
+
+                        // If content is missing, report a clear error so callers know the template has no uploaded file.
+                        if (string.IsNullOrEmpty(customHtmlContent))
                         {
-                            throw new ArgumentException("Custom template file path is required for CustomTemplate body source");
+                            throw new ArgumentException("Custom template content not found for the specified template. Ensure a custom template file was uploaded.");
                         }
 
-                        // Read custom template file from CMS API
-                        var customHtml = await _emailTemplateService.GetCustomTemplateContentAsync(template.Id);
-                        builder.HtmlBody = customHtml;
+                        builder.HtmlBody = customHtmlContent;
                         break;
 
                     default:

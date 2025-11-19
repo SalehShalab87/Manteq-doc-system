@@ -122,11 +122,11 @@ namespace CMS.WebApi.Controllers
         [HttpGet]
         [ProducesResponseType(typeof(List<EmailTemplateResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllEmailTemplates([FromQuery] bool? isActive = null, [FromQuery] string? category = null)
+        public async Task<IActionResult> GetAllEmailTemplates([FromQuery] string? name ,[FromQuery] bool? isActive = null, [FromQuery] string? category = null)
         {
             try
             {
-                var templates = await _emailTemplateService.GetAllEmailTemplatesAsync(isActive, category);
+                var templates = await _emailTemplateService.GetAllEmailTemplatesAsync(name,isActive, category);
                 _logger.LogDebug("✅ Retrieved {Count} email templates", templates.Count);
                 return Ok(templates);
             }
@@ -336,18 +336,30 @@ namespace CMS.WebApi.Controllers
                 }
 
                 // Validate file type
-                var allowedExtensions = new[] { ".html", ".xhtml", ".mhtml", ".mht" };
+                var allowedExtensions = new[] { ".mhtml", ".mht" };
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    return BadRequest(new { error = "Only .html, .xhtml, .mhtml and .mht files are allowed" });
+                    return BadRequest(new { error = "Only .mhtml and .mht files are allowed" });
                 }
 
-                // Upload file
-                await _fileService.SaveCustomTemplateAsync(file, id);
+                // Upload file and persist the file path into the template record
+                var filePath = await _fileService.SaveCustomTemplateAsync(file, id);
 
-                _logger.LogInformation("📤 Custom template file uploaded: {TemplateId}, File={FileName} ({Size} bytes)", 
+                // Persist file path to DB; if update fails, delete the saved file to avoid orphan files
+                var updatedBy = Request.Headers["X-User-Id"].FirstOrDefault() ?? "SYSTEM";
+                var saved = await _emailTemplateService.SetCustomTemplateFilePathAsync(id, filePath, updatedBy);
+
+                if (!saved)
+                {
+                    // Cleanup the saved file since we couldn't persist the path
+                    await _fileService.DeleteCustomTemplateAsync(filePath);
+                    _logger.LogWarning("⚠️ Uploaded custom template saved but DB update failed. Cleaned up file: {FilePath}", filePath);
+                    return StatusCode(500, new { error = "Uploaded file saved but failed to associate it with the template" });
+                }
+
+                _logger.LogInformation("📤 Custom template file uploaded and associated: {TemplateId}, File={FileName} ({Size} bytes)", 
                     id, file.FileName, file.Length);
 
                 return Ok(new { message = "Custom template file uploaded successfully" });
